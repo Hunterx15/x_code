@@ -1,0 +1,12 @@
+{
+  "name": "x_code",
+  "version": "1.0.0",
+  "description": "A full-stack coding practice platform with online code execution (Judge0), AI-powered tutoring (Google Gemini), video editorials (Cloudinary), discussions, achievements, leaderboards, and a LeetCode-inspired problem-solving interface.",
+  "license": "ISC",
+  "author": "",
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  }
+}
