@@ -25,6 +25,8 @@ const helmet = require('helmet');
 const { authLimiter, oauthLimiter, aiChatLimiter } = require('./middleware/rateLimiters');
 const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
 
+
+
 // Helmet — secure HTTP headers. Mounted FIRST so all responses get them.
 // CSP allows:
 //   - 'self' for everything by default
@@ -66,6 +68,11 @@ app.use(cors({
 
 app.use(express.json());
 app.use(cookieParser());
+
+app.use((req, res, next) => {
+    console.log("REQUEST:", req.method, req.originalUrl);
+    next();
+});
 
 app.use('/user', authRouter);
 app.use('/user', googleRouter);
