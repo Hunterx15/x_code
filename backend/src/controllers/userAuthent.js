@@ -9,7 +9,7 @@ const { cookieOptions, clearCookieOptions } = require("../config/cookieConfig");
 const register = async (req, res) => {
   try {
     // validate the data;
-
+    console.log("REGISTER CONTROLLER HIT");
     validate(req.body);
     const { firstName, lastName, emailId, password, age } = req.body;
 
