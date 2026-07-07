@@ -1,25 +1,63 @@
+// ---------------------------------------------------------------------------
+// AI chat controller (Gemini-powered DSA tutor).
+//
+// Endpoint: POST /ai/chat
+//
+// BUG FIXES (this file):
+//   1. Status code was 201 (Created) — chat doesn't create a resource.
+//      Changed to 200 OK.
+//   2. No validation of `messages` — if the client sent an empty array or
+//      a non-array, the Gemini SDK would throw an opaque error. We now
+//      validate up front and return 400.
+//   3. `response.text` is a getter on the GenAI response object — but in
+//      newer SDK versions it may be a method or undefined. We handle both.
+//   4. Error response now returns JSON (was already JSON, but inconsistent
+//      shape — now matches the centralized error shape `{ error, message }`).
+//   5. The GoogleGenAI client was instantiated on every request (expensive).
+//      We now cache it at module scope.
+// ---------------------------------------------------------------------------
+
 const { GoogleGenAI } = require("@google/genai");
 
+// Cache the GenAI client at module scope so we don't re-instantiate it on
+// every request (the constructor reads the API key and sets up HTTP clients).
+let aiClient = null;
+const getAiClient = () => {
+  if (!aiClient) {
+    if (!process.env.GEMINI_KEY) {
+      throw new Error("GEMINI_KEY environment variable is required");
+    }
+    aiClient = new GoogleGenAI({ apiKey: process.env.GEMINI_KEY });
+  }
+  return aiClient;
+};
 
-const solveDoubt = async(req , res)=>{
+const solveDoubt = async (req, res) => {
+  try {
+    const { messages, title, description, testCases, startCode } = req.body;
 
-    try{
+    // Validate required fields.
+    if (!Array.isArray(messages) || messages.length === 0) {
+      return res.status(400).json({
+        error: "messages is required and must be a non-empty array",
+        message: "messages is required and must be a non-empty array",
+      });
+    }
 
-        const {messages,title,description,testCases,startCode} = req.body;
-        const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_KEY });
+    const ai = getAiClient();
 
-        const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: messages,
-        config: {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: messages,
+      config: {
         systemInstruction: `
 You are an expert Data Structures and Algorithms (DSA) tutor specializing in helping users solve coding problems. Your role is strictly limited to DSA-related assistance only.
 
 ## CURRENT PROBLEM CONTEXT:
-[PROBLEM_TITLE]: ${title}
-[PROBLEM_DESCRIPTION]: ${description}
-[EXAMPLES]: ${testCases}
-[startCode]: ${startCode}
+[PROBLEM_TITLE]: ${title || "No title provided"}
+[PROBLEM_DESCRIPTION]: ${description || "No description provided"}
+[EXAMPLES]: ${testCases || "No test cases provided"}
+[startCode]: ${startCode || "No starter code provided"}
 
 
 ## YOUR CAPABILITIES:
@@ -79,20 +117,25 @@ You are an expert Data Structures and Algorithms (DSA) tutor specializing in hel
 - Promote best coding practices
 
 Remember: Your goal is to help users learn and understand DSA concepts through the lens of the current problem, not just to provide quick answers.
-`},
+`,
+      },
     });
 
-    res.status(201).json({
-        message:response.text
-    });
+    // `response.text` is a getter in current @google/genai versions, but
+    // older versions exposed it as a method. Handle both defensively.
+    const text =
+      typeof response?.text === "function"
+        ? response.text()
+        : response?.text || response?.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
-    }
-    catch(err){
-        console.error("AI chat error:", err);
-        res.status(500).json({
-            message: "Internal server error"
-        });
-    }
-}
+    res.status(200).json({ message: text });
+  } catch (err) {
+    console.error("AI chat error:", err?.message || err);
+    res.status(500).json({
+      error: "AI service unavailable",
+      message: "AI service unavailable",
+    });
+  }
+};
 
 module.exports = solveDoubt;

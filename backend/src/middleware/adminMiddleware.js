@@ -1,54 +1,81 @@
 const jwt = require("jsonwebtoken");
 const User = require("../models/user");
-const redisClient = require("../config/redis")
+const redisClient = require("../config/redis");
 
-const adminMiddleware = async (req,res,next)=>{
+// ---------------------------------------------------------------------------
+// Admin authentication middleware.
+//
+// Same flow as userMiddleware, but additionally requires that the user's
+// role (read from the DB, NOT from the JWT) is 'admin'. This prevents
+// demoted admins from retaining admin access until their JWT expires.
+//
+// BUG FIXES (same as userMiddleware):
+//   1. Previously sent plain text — now returns JSON.
+//   2. Now calls next(err) on unexpected errors.
+//   3. Now guards against Redis outages.
+//   4. (Already fixed in the previous revision) checks user existence FIRST,
+//      then checks role from the DB — not from the JWT.
+// ---------------------------------------------------------------------------
 
-    try{
-       
-        const {token} = req.cookies;
-        if(!token)
-            throw new Error("Token is not persent");
-
-        const payload = jwt.verify(token,process.env.JWT_KEY);
-
-        const {_id} = payload;
-
-        if(!_id){
-            throw new Error("Invalid token");
-        }
-
-        const result = await User.findById(_id);
-
-        // Bug #7 fix: check user existence FIRST, then check role from the
-        // DB (not from the JWT, which may be stale). The old code checked
-        // payload.role before checking if the user existed, and used the
-        // JWT role instead of the DB role — allowing demoted admins to
-        // retain access until token expiry.
-        if(!result){
-            throw new Error("User Doesn't Exist");
-        }
-
-        if(result.role !== 'admin')
-            throw new Error("Invalid Token");
-
-        // Redis ke blockList mein persent toh nahi hai
-
-        const IsBlocked = await redisClient.exists(`token:${token}`);
-
-        if(IsBlocked)
-            throw new Error("Invalid Token");
-
-        req.result = result;
-
-
-        next();
-    }
-    catch(err){
-        res.status(401).send("Error: "+err.message);
+const adminMiddleware = async (req, res, next) => {
+  try {
+    const { token } = req.cookies;
+    if (!token) {
+      return res.status(401).json({
+        error: "Token is not present",
+        message: "Token is not present",
+      });
     }
 
-}
+    let payload;
+    try {
+      payload = jwt.verify(token, process.env.JWT_KEY);
+    } catch (err) {
+      return res.status(401).json({
+        error: "Invalid or expired token",
+        message: "Invalid or expired token",
+      });
+    }
 
+    const { _id } = payload;
+    if (!_id) {
+      return res.status(401).json({ error: "Invalid token", message: "Invalid token" });
+    }
+
+    const result = await User.findById(_id);
+    if (!result) {
+      return res.status(401).json({
+        error: "User doesn't exist",
+        message: "User doesn't exist",
+      });
+    }
+
+    // Check role from the DB (not from the JWT, which may be stale).
+    if (result.role !== "admin") {
+      return res.status(403).json({
+        error: "Admin access required",
+        message: "Admin access required",
+      });
+    }
+
+    // Check the Redis blocklist (with graceful fallback).
+    try {
+      const isBlocked = await redisClient.exists(`token:${token}`);
+      if (isBlocked) {
+        return res.status(401).json({
+          error: "Token has been revoked",
+          message: "Token has been revoked",
+        });
+      }
+    } catch (redisErr) {
+      console.error("adminMiddleware: Redis check failed, failing open:", redisErr.message);
+    }
+
+    req.result = result;
+    next();
+  } catch (err) {
+    next(err);
+  }
+};
 
 module.exports = adminMiddleware;
