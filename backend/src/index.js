@@ -39,6 +39,7 @@ const submitRouter = require("./routes/submit");
 const aiRouter = require("./routes/aiChatting");
 const videoRouter = require("./routes/videoCreator");
 const discussionRouter = require("./routes/discussion");
+const contestRouter = require("./routes/contest");
 const cors = require("cors");
 const helmet = require("helmet");
 const {
@@ -99,6 +100,7 @@ app.use("/submission", submitRouter);
 app.use("/ai", aiRouter);
 app.use("/video", videoRouter);
 app.use("/discussion", discussionRouter);
+app.use("/contest", contestRouter);
 
 // Health check endpoint — used by EdgeFlow's health-check scheduler and
 // by container orchestrators (Docker, Kubernetes) to determine liveness.

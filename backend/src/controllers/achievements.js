@@ -385,13 +385,20 @@ const getLeaderboard = async (req, res) => {
     }
 
     // Aggregate: sort users by problemSolved length desc, project only what we need.
+    // Safe guard: $problemSolved might be missing or null on some user docs.
     const pipeline = [
       {
         $project: {
           firstName: 1,
           lastName: 1,
           avatarUrl: 1,
-          totalSolved: { $size: "$problemSolved" },
+          totalSolved: {
+            $cond: {
+              if: { $isArray: "$problemSolved" },
+              then: { $size: "$problemSolved" },
+              else: 0,
+            },
+          },
         },
       },
       { $sort: { totalSolved: -1, _id: 1 } },

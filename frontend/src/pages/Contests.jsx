@@ -24,21 +24,15 @@ import {
 const Contests = () => {
   const [contests, setContests] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [registeredMap, setRegisteredMap] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem("xcode:registered_contests")) || {};
-    } catch {
-      return {};
-    }
-  });
+  const [registering, setRegistering] = useState({});
 
   useEffect(() => {
     let cancelled = false;
     const fetchContests = async () => {
       try {
-        const { data } = await axiosClient.get("/user/dashboard");
+        const { data } = await axiosClient.get("/contest/all");
         if (!cancelled) {
-          setContests(data.upcomingContests || []);
+          setContests(data.contests || []);
         }
       } catch (err) {
         console.error("Contests fetch error:", err);
@@ -50,16 +44,52 @@ const Contests = () => {
     return () => { cancelled = true; };
   }, []);
 
-  const toggleRegister = (id) => {
-    setRegisteredMap((prev) => {
-      const next = { ...prev, [id]: !prev[id] };
-      try {
-        localStorage.setItem("xcode:registered_contests", JSON.stringify(next));
-      } catch {
-        // ignore
-      }
-      return next;
-    });
+  const toggleRegister = async (contestId, isCurrentlyRegistered) => {
+    if (registering[contestId]) return;
+    setRegistering((prev) => ({ ...prev, [contestId]: true }));
+
+    // Optimistic UI update
+    setContests((prev) =>
+      prev.map((c) =>
+        (c._id === contestId || c.id === contestId)
+          ? {
+              ...c,
+              isRegistered: !isCurrentlyRegistered,
+              registeredCount: (c.registeredCount || 0) + (isCurrentlyRegistered ? -1 : 1),
+            }
+          : c
+      )
+    );
+
+    try {
+      const endpoint = isCurrentlyRegistered
+        ? `/contest/unregister/${contestId}`
+        : `/contest/register/${contestId}`;
+      const { data } = await axiosClient.post(endpoint);
+      setContests((prev) =>
+        prev.map((c) =>
+          (c._id === contestId || c.id === contestId)
+            ? { ...c, isRegistered: data.isRegistered, registeredCount: data.registeredCount }
+            : c
+        )
+      );
+    } catch (err) {
+      console.error("Contest registration error:", err);
+      // Revert optimistic update
+      setContests((prev) =>
+        prev.map((c) =>
+          (c._id === contestId || c.id === contestId)
+            ? {
+                ...c,
+                isRegistered: isCurrentlyRegistered,
+                registeredCount: (c.registeredCount || 0) + (isCurrentlyRegistered ? 1 : -1),
+              }
+            : c
+        )
+      );
+    } finally {
+      setRegistering((prev) => ({ ...prev, [contestId]: false }));
+    }
   };
 
   const nextContest = contests[0] || null;
@@ -151,7 +181,7 @@ const Contests = () => {
                 </span>
                 <span className="flex items-center gap-1.5">
                   <Users size={13} className="text-[var(--success)]" />
-                  {(nextContest.registeredCount + (registeredMap[nextContest.id] ? 1 : 0)).toLocaleString()} Registered
+                  {(nextContest.registeredCount || 0).toLocaleString()} Registered
                 </span>
               </div>
             </div>
@@ -159,14 +189,15 @@ const Contests = () => {
             {/* Registration Action */}
             <div className="flex flex-col sm:flex-row items-center gap-3">
               <button
-                onClick={() => toggleRegister(nextContest.id)}
+                onClick={() => toggleRegister(nextContest._id || nextContest.id, nextContest.isRegistered)}
+                disabled={registering[nextContest._id || nextContest.id]}
                 className={`w-full sm:w-auto px-6 py-3 rounded-xl font-medium text-xs flex items-center justify-center gap-2 transition-all shadow-md ${
-                  registeredMap[nextContest.id]
+                  nextContest.isRegistered
                     ? "bg-[var(--success-soft)] border border-[var(--success)] text-[var(--success)]"
                     : "btn-primary !py-3 !px-6 shadow-blue-500/20"
                 }`}
               >
-                {registeredMap[nextContest.id] ? (
+                {nextContest.isRegistered ? (
                   <>
                     <CheckCircle2 size={16} /> Registered
                   </>
@@ -197,10 +228,11 @@ const Contests = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {remainingContests.map((c) => {
-            const isRegistered = !!registeredMap[c.id];
+            const contestKey = c._id || c.id;
+            const isRegistered = c.isRegistered;
             return (
               <div
-                key={c.id}
+                key={contestKey}
                 className="surface p-5 rounded-xl border border-[var(--border-default)] hover:border-[var(--border-strong)] transition-all flex flex-col justify-between group"
               >
                 <div>
@@ -226,10 +258,11 @@ const Contests = () => {
                     {new Date(c.startTime).toLocaleDateString(undefined, {
                       month: "short",
                       day: "numeric",
-                    })}
+                    })} · {(c.registeredCount || 0).toLocaleString()} registered
                   </div>
                   <button
-                    onClick={() => toggleRegister(c.id)}
+                    onClick={() => toggleRegister(contestKey, isRegistered)}
+                    disabled={registering[contestKey]}
                     className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                       isRegistered
                         ? "bg-[var(--success-soft)] text-[var(--success)] border border-[var(--success)]/30"
