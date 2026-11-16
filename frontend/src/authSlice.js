@@ -6,6 +6,9 @@ export const registerUser = createAsyncThunk(
   async (userData, { rejectWithValue }) => {
     try {
       const response = await axiosClient.post("/user/register", userData);
+      if (response.data?.token && typeof window !== "undefined") {
+        localStorage.setItem("token", response.data.token);
+      }
       return response.data.user;
     } catch (error) {
       return rejectWithValue(error);
@@ -18,6 +21,9 @@ export const loginUser = createAsyncThunk(
   async (credentials, { rejectWithValue }) => {
     try {
       const response = await axiosClient.post("/user/login", credentials);
+      if (response.data?.token && typeof window !== "undefined") {
+        localStorage.setItem("token", response.data.token);
+      }
       return response.data.user;
     } catch (error) {
       return rejectWithValue(error);
@@ -33,6 +39,9 @@ export const checkAuth = createAsyncThunk(
       return data.user;
     } catch (error) {
       if (error.response?.status === 401) {
+        if (typeof window !== "undefined") {
+          localStorage.removeItem("token");
+        }
         return rejectWithValue(null); // Special case for no session
       }
       return rejectWithValue(error);
@@ -44,6 +53,9 @@ export const logoutUser = createAsyncThunk(
   "auth/logout",
   async (_, { rejectWithValue }) => {
     try {
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("token");
+      }
       await axiosClient.post("/user/logout");
       return null;
     } catch (error) {

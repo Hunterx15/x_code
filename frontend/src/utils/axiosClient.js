@@ -41,6 +41,16 @@ const isAuthEndpoint = (url) => {
     return AUTH_ENDPOINTS.some((ep) => url.includes(ep));
 };
 
+axiosClient.interceptors.request.use((config) => {
+    if (typeof window !== "undefined") {
+        const token = localStorage.getItem("token");
+        if (token) {
+            config.headers.Authorization = `Bearer ${token}`;
+        }
+    }
+    return config;
+});
+
 axiosClient.interceptors.response.use(
     (response) => response,
     (error) => {
@@ -51,6 +61,9 @@ axiosClient.interceptors.response.use(
         // Auth endpoints handle their own 401s (e.g. wrong password → 401
         // → loginUser thunk rejects → Login.jsx shows error).
         if (status === 401 && store && !isAuthEndpoint(url)) {
+            if (typeof window !== "undefined") {
+                localStorage.removeItem("token");
+            }
             // Lazy-import the logout action to avoid circular dependency.
             // (authSlice.js imports axiosClient at module-load time, so we
             // can't import it statically here.)

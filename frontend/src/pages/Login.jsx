@@ -34,12 +34,28 @@ const Login = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { isAuthenticated, loading, error } = useSelector((s) => s.auth);
+  const [googleError, setGoogleError] = useState(null);
 
   const {
     register,
     handleSubmit,
     formState: { errors },
   } = useForm({ resolver: zodResolver(loginSchema) });
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const err = params.get("google_error");
+    if (err) {
+      const messages = {
+        missing_code: "Google sign-in did not return an authorization code.",
+        no_token: "Failed to obtain an access token from Google.",
+        incomplete_profile: "Google account does not provide an email address or profile.",
+        callback_failed: "Failed to complete Google authentication. Please try again.",
+        auth_failed: "Google session could not be established. If using Brave or private browsing, allow cross-site cookies or check your connection.",
+      };
+      setGoogleError(messages[err] || "Google sign-in failed. Please try again.");
+    }
+  }, []);
 
   useEffect(() => {
     if (isAuthenticated) navigate("/dashboard");
@@ -171,9 +187,9 @@ const Login = () => {
           </p>
 
           {/* Error banner */}
-          {error && (
+          {(googleError || error) && (
             <div className="mb-4 px-3 py-2.5 rounded-md border border-[var(--danger)]/30 bg-[var(--danger-soft)] text-[13px] text-[var(--danger)]">
-              {typeof error === "string" ? error : "Login failed. Please try again."}
+              {googleError || (typeof error === "string" ? error : "Login failed. Please try again.")}
             </div>
           )}
 

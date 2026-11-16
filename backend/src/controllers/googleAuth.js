@@ -140,9 +140,9 @@ const googleAuthCallback = async (req, res) => {
 
     res.cookie("token", token, cookieOptions());
 
-    // Redirect back to the frontend. The frontend's /auth/google/success route
-    // will call /user/check to hydrate Redux and then navigate to "/".
-    return res.redirect(`${frontendHome}/auth/google/success`);
+    // Redirect back to the frontend. Pass token as query param so cross-site /
+    // third-party cookie restrictions (Brave Shields, Safari ITP) don't break auth.
+    return res.redirect(`${frontendHome}/auth/google/success?token=${token}`);
   } catch (err) {
     console.error("Google OAuth callback error:", err?.response?.data || err?.message);
     return res.redirect(`${frontendHome}/login?google_error=callback_failed`);

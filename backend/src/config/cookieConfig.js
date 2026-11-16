@@ -18,8 +18,11 @@
 // ---------------------------------------------------------------------------
 
 const cookieOptions = () => {
-  const sameSite = process.env.COOKIE_SAMESITE || 'lax';
-  let secure = process.env.COOKIE_SECURE === 'true';
+  const isProd = process.env.NODE_ENV === 'production';
+  // In production across domains (e.g. Vercel frontend + Render/Railway backend),
+  // SameSite MUST be 'none' and Secure MUST be true, unless explicitly overridden.
+  const sameSite = process.env.COOKIE_SAMESITE || (isProd ? 'none' : 'lax');
+  let secure = process.env.COOKIE_SECURE === 'true' || (isProd && process.env.COOKIE_SECURE !== 'false');
 
   // SameSite=None requires Secure; modern browsers reject otherwise.
   if (sameSite === 'none' && !secure) {

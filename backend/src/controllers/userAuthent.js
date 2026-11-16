@@ -71,7 +71,7 @@ const register = async (req, res) => {
     res.cookie("token", token, cookieOptions());
     res.status(201).json({
       user: reply,
-      message: "Registered successfully",
+      message: "Loggin Successfully",
     });
   } catch (err) {
     // 409 for duplicate email (E11000), 400 for validation errors.
@@ -118,7 +118,7 @@ const login = async (req, res) => {
     // BUG FIX: 200 OK for login (was 201 Created).
     res.status(200).json({
       user: reply,
-      message: "Logged in successfully",
+      message: "Loggin Successfully",
     });
   } catch (err) {
     res.status(500).json(safeError(err));
@@ -130,15 +130,10 @@ const login = async (req, res) => {
 const logout = async (req, res) => {
   const { token } = req.cookies;
 
-  // BUG FIX: use res.clearCookie (not res.cookie("token", null, ...)).
-  // Cookies can't be set to null; clearCookie sends the proper Set-Cookie
-  // header with Max-Age=0 so the browser deletes it.
-  res.clearCookie("token", clearCookieOptions());
-
-  // If there's no token, just acknowledge the logout.
-  if (!token) {
-    return res.status(200).json({ message: "Logged out successfully" });
-  }
+  // Bug #4 fix: ALWAYS clear the cookie first, regardless of Redis state.
+  // If Redis is down, the user's browser still loses the cookie — they are
+  // effectively logged out even though the token isn't blocklisted.
+  res.cookie("token", null, clearCookieOptions());
 
   try {
     const payload = jwt.decode(token);

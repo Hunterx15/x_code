@@ -69,12 +69,22 @@ function GoogleAuthSuccess() {
   const { isAuthenticated, loading } = useSelector((state) => state.auth);
 
   useEffect(() => {
+    // If backend passed token in URL (fallback when cross-site cookies are blocked by browser)
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get("token");
+    if (token) {
+      localStorage.setItem("token", token);
+    }
     dispatch(checkAuth());
   }, [dispatch]);
 
   useEffect(() => {
-    if (!loading && isAuthenticated) {
-      navigate("/dashboard", { replace: true });
+    if (!loading) {
+      if (isAuthenticated) {
+        navigate("/dashboard", { replace: true });
+      } else {
+        navigate("/login?google_error=auth_failed", { replace: true });
+      }
     }
   }, [loading, isAuthenticated, navigate]);
 
