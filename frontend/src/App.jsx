@@ -118,6 +118,7 @@ function App() {
             <Route path="/problems" element={<Homepage />} />
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/profile" element={<Profile />} />
+            <Route path="/profile/:userId" element={<Profile />} />
             <Route path="/leaderboard" element={<Leaderboard />} />
             <Route path="/notes" element={<NotesPage />} />
             <Route path="/admin" element={user?.role === "admin" ? <Admin /> : <Navigate to="/dashboard" />} />

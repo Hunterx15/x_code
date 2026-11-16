@@ -141,7 +141,7 @@ const Leaderboard = () => {
                   <div className="flex items-center gap-1">{getRankIcon(e.rank)}</div>
                 </td>
                 <td className="px-4 py-3">
-                  <NavLink to="/profile" className="flex items-center gap-2.5">
+                  <NavLink to={`/profile/${e._id}`} className="flex items-center gap-2.5">
                     {e.avatarUrl ? (
                       <img src={e.avatarUrl} alt={e.firstName} referrerPolicy="no-referrer" className="w-7 h-7 rounded-full object-cover" />
                     ) : (

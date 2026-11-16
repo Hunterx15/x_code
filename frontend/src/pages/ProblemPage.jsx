@@ -27,6 +27,11 @@ import {
   StickyNote,
   Link2,
   MessagesSquare,
+  RotateCcw,
+  Settings2,
+  Award,
+  Sparkles,
+  X,
 } from 'lucide-react';
 import axiosClient from '../utils/axiosClient';
 import SubmissionHistory from '../components/SubmissionHistory';
@@ -112,10 +117,39 @@ const ProblemPage = () => {
   const [lastSaved, setLastSaved] = useState(null);
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
+  const [fontSize, setFontSize] = useState(() => Number(localStorage.getItem('14dev:editor:fontSize')) || 13);
+  const [minimap, setMinimap] = useState(() => localStorage.getItem('14dev:editor:minimap') === 'true');
+  const [showSettings, setShowSettings] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [awardedBadges, setAwardedBadges] = useState([]);
 
   const editorRef = useRef(null);
   const leftPanelRef = useRef(null);
   const runAbortRef = useRef(null);
+
+  const handleResetCode = useCallback(() => {
+    if (!problem) return;
+    const startCodeObj = problem.startCode?.find(
+      (sc) => sc.language === LANG_DISPLAY[selectedLanguage]
+    );
+    const initial = startCodeObj?.initialCode || '';
+    setCode(initial);
+    clearDraft(problemId, selectedLanguage);
+    setShowResetConfirm(false);
+  }, [problem, problemId, selectedLanguage]);
+
+  const updateFontSize = useCallback((size) => {
+    setFontSize(size);
+    try { localStorage.setItem('14dev:editor:fontSize', String(size)); } catch {}
+  }, []);
+
+  const toggleMinimap = useCallback(() => {
+    setMinimap((prev) => {
+      const next = !prev;
+      try { localStorage.setItem('14dev:editor:minimap', String(next)); } catch {}
+      return next;
+    });
+  }, []);
 
   // ------------------------------------------------------------------
   // Fetch problem on problemId change.
@@ -262,6 +296,9 @@ const ProblemPage = () => {
       setActiveRightTab('result');
       if (response.data?.accepted) {
         clearDraft(problemId, selectedLanguage);
+        if (Array.isArray(response.data?.newlyAwardedBadges) && response.data.newlyAwardedBadges.length > 0) {
+          setAwardedBadges(response.data.newlyAwardedBadges);
+        }
       }
     } catch (error) {
       console.error('Error submitting code:', error);
@@ -696,10 +733,91 @@ const ProblemPage = () => {
             </button>
           ))}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 relative">
+          {/* Reset Code Button */}
+          <div className="relative">
+            <button
+              onClick={() => setShowResetConfirm(!showResetConfirm)}
+              className="p-1.5 rounded text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors"
+              title="Reset code to starter template"
+              aria-label="Reset code"
+            >
+              <RotateCcw size={14} />
+            </button>
+            {showResetConfirm && (
+              <div className="absolute right-0 top-full mt-2 w-52 p-3 surface-elevated rounded-lg shadow-xl z-50 border border-[var(--border-default)]">
+                <p className="text-[12px] text-[var(--text-secondary)] mb-2.5">
+                  Reset code to initial template? All changes in this draft will be lost.
+                </p>
+                <div className="flex justify-end gap-2">
+                  <button
+                    onClick={() => setShowResetConfirm(false)}
+                    className="px-2 py-1 text-[11px] rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleResetCode}
+                    className="px-2 py-1 text-[11px] rounded bg-rose-600 hover:bg-rose-500 text-white font-medium"
+                  >
+                    Reset
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Editor Settings */}
+          <div className="relative">
+            <button
+              onClick={() => setShowSettings(!showSettings)}
+              className="p-1.5 rounded text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors"
+              title="Editor Settings"
+              aria-label="Editor settings"
+            >
+              <Settings2 size={14} />
+            </button>
+            {showSettings && (
+              <div className="absolute right-0 top-full mt-2 w-48 p-3 surface-elevated rounded-lg shadow-xl z-50 border border-[var(--border-default)]">
+                <div className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider mb-2">
+                  Editor Settings
+                </div>
+                <div className="space-y-2.5 text-[12px]">
+                  <div>
+                    <label className="text-zinc-400 block mb-1">Font Size</label>
+                    <div className="grid grid-cols-4 gap-1 text-center font-mono">
+                      {[12, 13, 14, 16].map((sz) => (
+                        <button
+                          key={sz}
+                          onClick={() => updateFontSize(sz)}
+                          className={`py-1 rounded text-xs transition-colors ${
+                            fontSize === sz ? 'bg-[var(--accent)] text-white font-bold' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
+                          }`}
+                        >
+                          {sz}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between pt-1 border-t border-zinc-800">
+                    <span className="text-zinc-300">Minimap</span>
+                    <button
+                      onClick={toggleMinimap}
+                      className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
+                        minimap ? 'bg-emerald-600 text-white' : 'bg-zinc-800 text-zinc-400'
+                      }`}
+                    >
+                      {minimap ? 'ON' : 'OFF'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
           <button
             onClick={handleManualSave}
-            className="p-1.5 rounded text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800"
+            className="p-1.5 rounded text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors"
             title="Save (Alt+S)"
             aria-label="Save code"
           >
@@ -707,7 +825,7 @@ const ProblemPage = () => {
           </button>
           <button
             onClick={toggleFullscreen}
-            className="p-1.5 rounded text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800"
+            className="p-1.5 rounded text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors"
             title="Toggle fullscreen editor (Alt+F)"
             aria-label="Toggle fullscreen editor"
           >
@@ -726,10 +844,10 @@ const ProblemPage = () => {
           onMount={handleEditorDidMount}
           theme="vs-dark"
           options={{
-            fontSize: 13,
+            fontSize: fontSize,
             fontFamily: '"JetBrains Mono", "Fira Code", "SF Mono", Menlo, Consolas, monospace',
             fontLigatures: true,
-            minimap: { enabled: false },
+            minimap: { enabled: minimap },
             scrollBeyondLastLine: false,
             automaticLayout: true,
             tabSize: 2,
@@ -785,7 +903,8 @@ const ProblemPage = () => {
       </div>
     </div>
   ), [
-    selectedLanguage, code, loading, isFullscreen,
+    selectedLanguage, code, loading, isFullscreen, fontSize, minimap,
+    showSettings, showResetConfirm, handleResetCode, updateFontSize, toggleMinimap,
     handleLanguageChange, handleEditorChange, handleEditorDidMount,
     handleRun, handleSubmitCode, handleManualSave, toggleFullscreen,
     getLanguageForMonaco,
@@ -1024,6 +1143,59 @@ const ProblemPage = () => {
     </div>
   );
 
+  // Badge unlock celebration modal
+  const BadgeModal = (
+    <AnimatePresence>
+      {awardedBadges.length > 0 && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.85, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+            transition={{ type: "spring", damping: 25, stiffness: 300 }}
+            className="surface-elevated border border-[var(--border-strong)] rounded-2xl max-w-sm w-full p-6 text-center relative shadow-2xl overflow-hidden"
+          >
+            {/* Ambient gold glow */}
+            <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-48 h-48 bg-yellow-500/20 rounded-full blur-3xl pointer-events-none" />
+
+            <button
+              onClick={() => setAwardedBadges([])}
+              className="absolute top-4 right-4 text-zinc-400 hover:text-white p-1 rounded-md"
+            >
+              <X size={16} />
+            </button>
+
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-yellow-400/20 to-amber-600/30 border border-yellow-500/40 flex items-center justify-center mx-auto mb-4 text-yellow-400 shadow-lg">
+              <Award size={36} className="animate-bounce" />
+            </div>
+
+            <div className="flex items-center justify-center gap-1.5 text-xs font-semibold text-yellow-400 uppercase tracking-widest mb-1">
+              <Sparkles size={13} />
+              Badge Unlocked!
+            </div>
+
+            {awardedBadges.map((badge, idx) => (
+              <div key={idx} className="my-3">
+                <h3 className="text-xl font-bold text-white mb-1">{badge.name}</h3>
+                <p className="text-sm text-zinc-400 leading-relaxed">{badge.description}</p>
+                <div className="inline-block mt-2 px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider bg-yellow-500/10 text-yellow-400 border border-yellow-500/30">
+                  {badge.tier || "Bronze"} Tier
+                </div>
+              </div>
+            ))}
+
+            <button
+              onClick={() => setAwardedBadges([])}
+              className="btn-primary w-full mt-4 !py-2.5 text-sm"
+            >
+              Awesome, keep going!
+            </button>
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
+  );
+
   // The mobile-only / desktop-only classes are toggled by the CSS media
   // queries in index.css. We render both so the transition is instant
   // when the viewport crosses 768px.
@@ -1031,6 +1203,7 @@ const ProblemPage = () => {
     <div data-theme="dark" className="h-screen">
       {MobileView}
       {DesktopView}
+      {BadgeModal}
     </div>
   );
 };

@@ -16,6 +16,8 @@
 const User = require("../models/user");
 const Problem = require("../models/problem");
 const Submission = require("../models/submission");
+const UserBadge = require("../models/userBadge");
+const mongoose = require("mongoose");
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -384,4 +386,57 @@ const getDashboard = async (req, res) => {
   }
 };
 
-module.exports = { getProfile, getSubmissionHistory, getDashboard };
+const getPublicProfile = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    if (!mongoose.isValidObjectId(userId)) {
+      return res.status(400).json({ error: "Invalid user ID" });
+    }
+
+    const profileData = await computeProfileStats(userId, { recentLimit: 10, activityDays: 90 });
+
+    const earnedBadges = await UserBadge.find({ userId }).sort({ awardedAt: -1 });
+    const { BADGE_DEFINITIONS } = require("./achievements");
+    const badgeMap = new Map(BADGE_DEFINITIONS.map((b) => [b.id, b]));
+    const earned = earnedBadges.map((ub) => {
+      const def = badgeMap.get(ub.badgeId) || {
+        name: ub.badgeId,
+        description: "",
+        icon: "Award",
+        tier: "bronze",
+        category: "special",
+      };
+      return {
+        id: ub.badgeId,
+        name: def.name,
+        description: def.description,
+        icon: def.icon,
+        tier: def.tier,
+        category: def.category,
+        awardedAt: ub.awardedAt,
+      };
+    });
+
+    res.status(200).json({
+      user: {
+        _id: profileData.user._id,
+        firstName: profileData.user.firstName,
+        lastName: profileData.user.lastName,
+        avatarUrl: profileData.user.avatarUrl,
+        createdAt: profileData.user.createdAt,
+      },
+      stats: profileData.stats,
+      activityGraph: profileData.activityGraph,
+      badges: earned,
+      recentSubmissions: profileData.recentSubmissions,
+    });
+  } catch (err) {
+    if (err.statusCode === 404) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    console.error("getPublicProfile error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+module.exports = { getProfile, getSubmissionHistory, getDashboard, getPublicProfile };

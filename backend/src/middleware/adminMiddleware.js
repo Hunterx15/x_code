@@ -19,26 +19,6 @@ const redisClient = require("../config/redis");
 
 const adminMiddleware = async (req, res, next) => {
   try {
-<<<<<<< HEAD
-    const { token } = req.cookies;
-    if (!token) {
-      return res.status(401).json({
-        error: "Token is not present",
-        message: "Token is not present",
-      });
-    }
-
-    let payload;
-    try {
-      payload = jwt.verify(token, process.env.JWT_KEY);
-    } catch (err) {
-      return res.status(401).json({
-        error: "Invalid or expired token",
-        message: "Invalid or expired token",
-      });
-    }
-
-=======
     let token = req.cookies?.token;
     if (!token && req.headers?.authorization) {
       const parts = req.headers.authorization.split(" ");
@@ -64,7 +44,6 @@ const adminMiddleware = async (req, res, next) => {
       });
     }
 
->>>>>>> 1659d45 (fix: add bearer token fallback for google oauth and fix loader hang)
     const { _id } = payload;
     if (!_id) {
       return res.status(401).json({ error: "Invalid token", message: "Invalid token" });

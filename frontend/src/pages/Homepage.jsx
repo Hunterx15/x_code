@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
-import { NavLink } from "react-router";
+import { NavLink, useNavigate } from "react-router";
 import { useDispatch, useSelector } from "react-redux";
 import axiosClient from "../utils/axiosClient";
 import { logoutUser } from "../authSlice";
@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   Circle,
   Bookmark,
+  Heart,
   Filter,
   Trophy,
   Target,
@@ -22,9 +23,12 @@ import {
 
 function Homepage() {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const { user } = useSelector((state) => state.auth);
   const [problems, setProblems] = useState([]);
   const [solvedProblems, setSolvedProblems] = useState([]);
+  const [bookmarks, setBookmarks] = useState([]);
+  const [favorites, setFavorites] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({
     difficulty: "all",
@@ -52,23 +56,44 @@ function Homepage() {
   }, []);
 
   useEffect(() => {
-    if (!user) { setSolvedProblems([]); return; }
+    if (!user) {
+      setSolvedProblems([]);
+      setBookmarks([]);
+      setFavorites([]);
+      return;
+    }
     let cancelled = false;
-    const fetchSolvedProblems = async () => {
+    const fetchUserData = async () => {
       try {
-        const { data } = await axiosClient.get("/problem/problemSolvedByUser");
-        if (!cancelled) setSolvedProblems(data);
+        const [solvedRes, bmRes, favRes] = await Promise.all([
+          axiosClient.get("/problem/problemSolvedByUser"),
+          axiosClient.get("/user/bookmarks").catch(() => ({ data: { bookmarks: [] } })),
+          axiosClient.get("/user/favorites").catch(() => ({ data: { favorites: [] } })),
+        ]);
+        if (!cancelled) {
+          setSolvedProblems(solvedRes.data || []);
+          setBookmarks(bmRes.data.bookmarks || []);
+          setFavorites(favRes.data.favorites || []);
+        }
       } catch (error) {
-        console.error("Error fetching solved problems:", error);
+        console.error("Error fetching user problem status:", error);
       }
     };
-    fetchSolvedProblems();
+    fetchUserData();
     return () => { cancelled = true; };
   }, [user]);
 
   const solvedIds = useMemo(
     () => new Set(solvedProblems.map((sp) => sp._id)),
     [solvedProblems]
+  );
+  const bookmarkIds = useMemo(
+    () => new Set(bookmarks.map((b) => b._id)),
+    [bookmarks]
+  );
+  const favoriteIds = useMemo(
+    () => new Set(favorites.map((f) => f._id)),
+    [favorites]
   );
 
   const filteredProblems = useMemo(() => {
@@ -79,13 +104,15 @@ function Homepage() {
       const statusMatch =
         filters.status === "all" ||
         (filters.status === "solved" && solvedIds.has(problem._id)) ||
-        (filters.status === "unsolved" && !solvedIds.has(problem._id));
+        (filters.status === "unsolved" && !solvedIds.has(problem._id)) ||
+        (filters.status === "bookmarked" && bookmarkIds.has(problem._id)) ||
+        (filters.status === "favorite" && favoriteIds.has(problem._id));
       const searchMatch =
         !filters.search ||
         problem.title.toLowerCase().includes(filters.search.toLowerCase());
       return difficultyMatch && tagMatch && statusMatch && searchMatch;
     });
-  }, [problems, filters, solvedIds]);
+  }, [problems, filters, solvedIds, bookmarkIds, favoriteIds]);
 
   const updateFilter = useCallback((key, value) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
@@ -181,9 +208,11 @@ function Homepage() {
           onChange={(e) => updateFilter("status", e.target.value)}
           className="input-field !w-auto !py-2 text-[13px] cursor-pointer"
         >
-          <option value="all">All</option>
+          <option value="all">All Problems</option>
           <option value="solved">Solved</option>
           <option value="unsolved">Unsolved</option>
+          <option value="bookmarked">Bookmarked</option>
+          <option value="favorite">Favorites</option>
         </select>
       </div>
 
@@ -216,7 +245,7 @@ function Homepage() {
                     animate={{ opacity: 1 }}
                     transition={{ duration: 0.2, delay: Math.min(index * 0.01, 0.3) }}
                     className="border-b border-[var(--border-subtle)] last:border-0 hover:bg-[var(--bg-surface-hover)] transition-colors group cursor-pointer"
-                    onClick={() => window.location.href = `/problem/${problem._id}`}
+                    onClick={() => navigate(`/problem/${problem._id}`)}
                   >
                     <td className="px-4 py-3">
                       {isSolved ? (

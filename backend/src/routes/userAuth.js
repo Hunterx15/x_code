@@ -2,7 +2,7 @@ const express = require('express');
 
 const authRouter =  express.Router();
 const {register, login,logout, adminRegister,deleteProfile} = require('../controllers/userAuthent')
-const { getProfile, getSubmissionHistory, getDashboard } = require('../controllers/userProfile')
+const { getProfile, getSubmissionHistory, getDashboard, getPublicProfile } = require('../controllers/userProfile')
 const { getAchievements, getLeaderboard } = require('../controllers/achievements')
 const userMiddleware = require("../middleware/userMiddleware");
 const adminMiddleware = require('../middleware/adminMiddleware');
@@ -18,6 +18,7 @@ authRouter.delete('/deleteProfile',userMiddleware,deleteProfile);
 // Profile + Dashboard (Batch F + G) — all behind userMiddleware, no new
 // rate limiting (GET endpoints, low abuse risk, follow existing pattern).
 authRouter.get('/profile', userMiddleware, getProfile);
+authRouter.get('/public-profile/:userId', userMiddleware, getPublicProfile);
 authRouter.get('/submissions', userMiddleware, getSubmissionHistory);
 authRouter.get('/dashboard', userMiddleware, getDashboard);
 

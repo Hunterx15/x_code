@@ -17,6 +17,7 @@ const mongoose = require("mongoose");
 const User = require("../models/user");
 const Submission = require("../models/submission");
 const UserBadge = require("../models/userBadge");
+const redisClient = require("../config/redis");
 
 // ---------------------------------------------------------------------------
 // Badge definitions — STATIC, in-code. Each has:
@@ -371,6 +372,18 @@ const getLeaderboard = async (req, res) => {
     const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 20, 1), 100);
     const skip = (page - 1) * limit;
 
+    const cacheKey = `cache:leaderboard:${page}:${limit}`;
+    if (redisClient.isOpen) {
+      try {
+        const cached = await redisClient.get(cacheKey);
+        if (cached) {
+          return res.status(200).json(JSON.parse(cached));
+        }
+      } catch (cacheErr) {
+        console.warn("Redis leaderboard cache read error:", cacheErr.message);
+      }
+    }
+
     // Aggregate: sort users by problemSolved length desc, project only what we need.
     const pipeline = [
       {
@@ -409,7 +422,7 @@ const getLeaderboard = async (req, res) => {
       badgeCount: badgeMap.get(u._id.toString()) || 0,
     }));
 
-    res.status(200).json({
+    const responsePayload = {
       leaderboard: ranked,
       pagination: {
         page,
@@ -417,7 +430,17 @@ const getLeaderboard = async (req, res) => {
         total,
         totalPages: Math.ceil(total / limit),
       },
-    });
+    };
+
+    if (redisClient.isOpen) {
+      try {
+        await redisClient.set(cacheKey, JSON.stringify(responsePayload), { EX: 30 });
+      } catch (cacheErr) {
+        // ignore
+      }
+    }
+
+    res.status(200).json(responsePayload);
   } catch (err) {
     console.error("getLeaderboard error:", err);
     res.status(500).json({ error: "Internal server error" });

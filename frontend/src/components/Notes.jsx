@@ -1,6 +1,8 @@
 import { useEffect, useState, useCallback } from "react";
 import axiosClient from "../utils/axiosClient";
-import { Plus, Trash2, Loader2, StickyNote, Edit3, X, Check } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { Plus, Trash2, Loader2, StickyNote, Edit3, X, Check, Eye } from "lucide-react";
 
 // ---------------------------------------------------------------------------
 // Notes — per-user, per-problem personal notes.
@@ -12,6 +14,7 @@ const Notes = ({ problemId }) => {
   const [notes, setNotes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [newNote, setNewNote] = useState("");
+  const [previewNew, setPreviewNew] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [editingContent, setEditingContent] = useState("");
@@ -96,17 +99,52 @@ const Notes = ({ problemId }) => {
     <div className="space-y-4">
       {/* New note composer */}
       <div className="rounded-lg border border-zinc-800 bg-[#131316] p-3">
-        <div className="flex items-center gap-2 mb-2 text-xs text-zinc-400">
-          <Plus size={14} />
-          <span>Add a note</span>
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-1.5 text-xs text-zinc-400">
+            <Plus size={14} />
+            <span>Add a note</span>
+          </div>
+          <div className="flex items-center gap-1 bg-[#0a0a0b] p-0.5 rounded-md border border-zinc-800 text-xs">
+            <button
+              type="button"
+              onClick={() => setPreviewNew(false)}
+              className={`px-2 py-0.5 rounded flex items-center gap-1 text-[11px] transition-colors ${
+                !previewNew ? "bg-zinc-800 text-zinc-100 font-medium" : "text-zinc-500 hover:text-zinc-300"
+              }`}
+            >
+              <Edit3 size={10} /> Write
+            </button>
+            <button
+              type="button"
+              onClick={() => setPreviewNew(true)}
+              className={`px-2 py-0.5 rounded flex items-center gap-1 text-[11px] transition-colors ${
+                previewNew ? "bg-zinc-800 text-zinc-100 font-medium" : "text-zinc-500 hover:text-zinc-300"
+              }`}
+            >
+              <Eye size={10} /> Preview
+            </button>
+          </div>
         </div>
-        <textarea
-          value={newNote}
-          onChange={(e) => setNewNote(e.target.value)}
-          placeholder="Write down your approach, edge cases, or insights..."
-          className="w-full bg-transparent text-sm text-zinc-200 placeholder-zinc-600 outline-none resize-y min-h-[80px] font-mono"
-          rows={4}
-        />
+
+        {!previewNew ? (
+          <textarea
+            value={newNote}
+            onChange={(e) => setNewNote(e.target.value)}
+            placeholder="Write down your approach, edge cases, insights in Markdown..."
+            className="w-full bg-transparent text-sm text-zinc-200 placeholder-zinc-600 outline-none resize-y min-h-[80px] font-mono"
+            rows={4}
+          />
+        ) : (
+          <div className="w-full min-h-[80px] p-2 bg-[#0a0a0b] rounded border border-zinc-800 text-sm text-zinc-200 overflow-y-auto max-h-[200px]">
+            {newNote.trim() ? (
+              <div className="prose prose-invert prose-sm max-w-none">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{newNote}</ReactMarkdown>
+              </div>
+            ) : (
+              <p className="text-zinc-600 italic text-xs">Nothing to preview.</p>
+            )}
+          </div>
+        )}
         <div className="flex justify-end mt-2">
           <button
             onClick={handleCreate}
@@ -157,9 +195,9 @@ const Notes = ({ problemId }) => {
               ) : (
                 <>
                   <div className="flex items-start justify-between gap-2">
-                    <pre className="flex-1 text-sm text-zinc-200 whitespace-pre-wrap font-mono">
-                      {note.content}
-                    </pre>
+                    <div className="flex-1 text-sm text-zinc-200 prose prose-invert prose-sm max-w-none">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{note.content}</ReactMarkdown>
+                    </div>
                     <div className="flex gap-1 flex-shrink-0">
                       <button
                         onClick={() => startEdit(note)}

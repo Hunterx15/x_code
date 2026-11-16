@@ -33,6 +33,7 @@ const Problem = require("../models/problem");
 const User = require("../models/user");
 const Submission = require("../models/submission");
 const SolutionVideo = require("../models/solutionVideo");
+const redisClient = require("../config/redis");
 const mongoose = require("mongoose");
 
 const safeError = (err, defaultStatus = 500) => {
@@ -104,6 +105,10 @@ const createProblem = async (req, res) => {
       referenceSolution,
       problemCreator: req.result._id,
     });
+
+    if (redisClient.isOpen) {
+      redisClient.del("cache:all_problems").catch(() => {});
+    }
 
     res.status(201).json({
       message: "Problem saved successfully",
@@ -189,6 +194,10 @@ const updateProblem = async (req, res) => {
       new: true,
     });
 
+    if (redisClient.isOpen) {
+      redisClient.del("cache:all_problems").catch(() => {});
+    }
+
     res.status(200).json({ problem: newProblem });
   } catch (err) {
     res.status(500).json(safeError(err));
@@ -208,6 +217,10 @@ const deleteProblem = async (req, res) => {
     const deletedProblem = await Problem.findByIdAndDelete(id);
     if (!deletedProblem) {
       return res.status(404).json({ error: "Problem not found", message: "Problem not found" });
+    }
+
+    if (redisClient.isOpen) {
+      redisClient.del("cache:all_problems").catch(() => {});
     }
 
     res.status(200).json({ message: "Deleted successfully" });
@@ -311,6 +324,18 @@ const getProblemById = async (req, res) => {
 
 const getAllProblem = async (req, res) => {
   try {
+    const cacheKey = "cache:all_problems";
+    if (redisClient.isOpen) {
+      try {
+        const cached = await redisClient.get(cacheKey);
+        if (cached) {
+          return res.status(200).json(JSON.parse(cached));
+        }
+      } catch (cacheErr) {
+        console.warn("Redis cache read error:", cacheErr.message);
+      }
+    }
+
     const getProblem = await Problem.find({}).select(
       "_id title difficulty tags",
     );
@@ -320,6 +345,14 @@ const getAllProblem = async (req, res) => {
     // string "Problem is Missing" broke the frontend, which expected an array.
     if (getProblem.length === 0) {
       return res.status(200).json([]);
+    }
+
+    if (redisClient.isOpen) {
+      try {
+        await redisClient.set(cacheKey, JSON.stringify(getProblem), { EX: 60 });
+      } catch (cacheErr) {
+        // ignore
+      }
     }
 
     res.status(200).json(getProblem);

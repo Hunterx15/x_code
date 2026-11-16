@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { NavLink } from "react-router";
+import { NavLink, useParams } from "react-router";
 import { motion } from "framer-motion";
 import axiosClient from "../utils/axiosClient";
 import ActivityGraph from "../components/ActivityGraph";
@@ -24,11 +24,14 @@ import { useSelector } from "react-redux";
 
 // ===========================================================================
 // XCODE Profile — GitHub-inspired.
-// Uses GET /user/profile + /user/achievements + /user/bookmarks + /user/favorites + /user/recentlyViewed.
+// Supports both personal profile (/profile) and public profile (/profile/:userId).
 // ===========================================================================
 
 const Profile = () => {
+  const { userId } = useParams();
   const { user: currentUser } = useSelector((s) => s.auth);
+  const isSelf = !userId || (currentUser && (userId === currentUser._id || userId === currentUser.id));
+
   const [profile, setProfile] = useState(null);
   const [submissions, setSubmissions] = useState([]);
   const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, totalPages: 0 });
@@ -44,18 +47,28 @@ const Profile = () => {
     const fetchAll = async () => {
       try {
         setLoading(true);
-        const [profileRes, bookmarksRes, favoritesRes, recentRes, achievementsRes] = await Promise.all([
-          axiosClient.get("/user/profile"),
-          axiosClient.get("/user/bookmarks").catch(() => ({ data: { bookmarks: [] } })),
-          axiosClient.get("/user/favorites").catch(() => ({ data: { favorites: [] } })),
-          axiosClient.get("/user/recentlyViewed").catch(() => ({ data: { recentlyViewed: [] } })),
-          axiosClient.get("/user/achievements").catch(() => ({ data: { earned: [], available: [], stats: null } })),
-        ]);
-        setProfile(profileRes.data);
-        setBookmarks(bookmarksRes.data.bookmarks || []);
-        setFavorites(favoritesRes.data.favorites || []);
-        setRecentlyViewed(recentRes.data.recentlyViewed || []);
-        setAchievements(achievementsRes.data || { earned: [], available: [], stats: null });
+        setError(null);
+        if (isSelf) {
+          const [profileRes, bookmarksRes, favoritesRes, recentRes, achievementsRes] = await Promise.all([
+            axiosClient.get("/user/profile"),
+            axiosClient.get("/user/bookmarks").catch(() => ({ data: { bookmarks: [] } })),
+            axiosClient.get("/user/favorites").catch(() => ({ data: { favorites: [] } })),
+            axiosClient.get("/user/recentlyViewed").catch(() => ({ data: { recentlyViewed: [] } })),
+            axiosClient.get("/user/achievements").catch(() => ({ data: { earned: [], available: [], stats: null } })),
+          ]);
+          setProfile(profileRes.data);
+          setBookmarks(bookmarksRes.data.bookmarks || []);
+          setFavorites(favoritesRes.data.favorites || []);
+          setRecentlyViewed(recentRes.data.recentlyViewed || []);
+          setAchievements(achievementsRes.data || { earned: [], available: [], stats: null });
+        } else {
+          const res = await axiosClient.get(`/user/public-profile/${userId}`);
+          setProfile(res.data);
+          setBookmarks([]);
+          setFavorites([]);
+          setRecentlyViewed([]);
+          setAchievements({ earned: res.data.badges || [], available: [], stats: null });
+        }
       } catch (err) {
         console.error("Profile fetch error:", err);
         setError(err?.response?.data?.error || "Failed to load profile");
@@ -64,9 +77,10 @@ const Profile = () => {
       }
     };
     fetchAll();
-  }, []);
+  }, [userId, isSelf]);
 
   const fetchSubmissions = useCallback(async (page) => {
+    if (!isSelf) return;
     try {
       setSubmissionsLoading(true);
       const { data } = await axiosClient.get(
@@ -79,7 +93,7 @@ const Profile = () => {
     } finally {
       setSubmissionsLoading(false);
     }
-  }, [pagination.limit]);
+  }, [pagination.limit, isSelf]);
 
   useEffect(() => {
     fetchSubmissions(1);
@@ -122,10 +136,17 @@ const Profile = () => {
           </div>
         )}
         <div className="flex-1 min-w-0">
-          <h1 className="text-2xl font-bold tracking-tight">
-            {user.firstName} {user.lastName || ""}
-          </h1>
-          <p className="text-[13px] text-[var(--text-tertiary)] mb-3">{user.emailId}</p>
+          <div className="flex items-center gap-2 mb-1">
+            <h1 className="text-2xl font-bold tracking-tight">
+              {user.firstName} {user.lastName || ""}
+            </h1>
+            {!isSelf && (
+              <span className="text-[11px] px-2 py-0.5 rounded-full bg-[var(--accent-soft)] text-[var(--accent)] font-medium">
+                Public Profile
+              </span>
+            )}
+          </div>
+          {user.emailId && <p className="text-[13px] text-[var(--text-tertiary)] mb-3">{user.emailId}</p>}
           <div className="flex flex-wrap items-center gap-3">
             <span className="pill">
               <Trophy size={11} className="text-[var(--accent)]" /> {stats.totalSolved} solved
@@ -212,12 +233,14 @@ const Profile = () => {
         </div>
       )}
 
-      {/* ============ ENGAGEMENT: bookmarks + favorites + recently viewed ============ */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-        <EngagementCard icon={Bookmark} title="Bookmarks" items={bookmarks} accent="text-[var(--warning)]" />
-        <EngagementCard icon={Heart} title="Favorites" items={favorites} accent="text-[var(--danger)]" />
-        <EngagementCard icon={History} title="Recently Viewed" items={recentlyViewed} accent="text-[var(--accent)]" />
-      </div>
+      {/* ============ ENGAGEMENT: bookmarks + favorites + recently viewed (owner only) ============ */}
+      {isSelf && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+          <EngagementCard icon={Bookmark} title="Bookmarks" items={bookmarks} accent="text-[var(--warning)]" />
+          <EngagementCard icon={Heart} title="Favorites" items={favorites} accent="text-[var(--danger)]" />
+          <EngagementCard icon={History} title="Recently Viewed" items={recentlyViewed} accent="text-[var(--accent)]" />
+        </div>
+      )}
 
       {/* ============ RECENT SUBMISSIONS ============ */}
       <div className="surface rounded-xl p-5">

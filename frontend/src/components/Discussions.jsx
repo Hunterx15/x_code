@@ -1,6 +1,9 @@
 import { useEffect, useState, useCallback } from "react";
 import { useSelector } from "react-redux";
+import { NavLink } from "react-router";
 import axiosClient from "../utils/axiosClient";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import {
   MessageSquare,
   ChevronUp,
@@ -11,6 +14,8 @@ import {
   ArrowLeft,
   MessagesSquare,
   Pin,
+  Eye,
+  Edit3,
 } from "lucide-react";
 
 // ---------------------------------------------------------------------------
@@ -42,6 +47,7 @@ const Discussions = ({ problemId }) => {
   const [newContent, setNewContent] = useState("");
   const [newType, setNewType] = useState("problem");
   const [creating, setCreating] = useState(false);
+  const [previewMode, setPreviewMode] = useState(false);
   // New comment state (per detail view)
   const [newComment, setNewComment] = useState("");
   const [commenting, setCommenting] = useState(false);
@@ -269,21 +275,57 @@ const Discussions = ({ problemId }) => {
             className="w-full bg-[#131316] border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 outline-none focus:border-zinc-600"
             maxLength={200}
           />
-          <select
-            value={newType}
-            onChange={(e) => setNewType(e.target.value)}
-            className="bg-[#131316] border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-200 outline-none"
-          >
-            <option value="problem">Problem Discussion</option>
-            <option value="editorial">Editorial Discussion</option>
-          </select>
-          <textarea
-            value={newContent}
-            onChange={(e) => setNewContent(e.target.value)}
-            placeholder="Write your discussion content..."
-            className="w-full bg-[#131316] border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 outline-none focus:border-zinc-600 resize-y min-h-[160px] font-mono"
-            maxLength={20000}
-          />
+          <div className="flex items-center justify-between">
+            <select
+              value={newType}
+              onChange={(e) => setNewType(e.target.value)}
+              className="bg-[#131316] border border-zinc-800 rounded-lg px-3 py-1.5 text-xs text-zinc-200 outline-none"
+            >
+              <option value="problem">Problem Discussion</option>
+              <option value="editorial">Editorial Discussion</option>
+            </select>
+
+            <div className="flex items-center gap-1 bg-[#0a0a0b] p-0.5 rounded-md border border-zinc-800 text-xs">
+              <button
+                type="button"
+                onClick={() => setPreviewMode(false)}
+                className={`px-2.5 py-1 rounded flex items-center gap-1.5 transition-colors ${
+                  !previewMode ? "bg-zinc-800 text-zinc-100 font-medium" : "text-zinc-500 hover:text-zinc-300"
+                }`}
+              >
+                <Edit3 size={11} /> Write
+              </button>
+              <button
+                type="button"
+                onClick={() => setPreviewMode(true)}
+                className={`px-2.5 py-1 rounded flex items-center gap-1.5 transition-colors ${
+                  previewMode ? "bg-zinc-800 text-zinc-100 font-medium" : "text-zinc-500 hover:text-zinc-300"
+                }`}
+              >
+                <Eye size={11} /> Preview
+              </button>
+            </div>
+          </div>
+
+          {!previewMode ? (
+            <textarea
+              value={newContent}
+              onChange={(e) => setNewContent(e.target.value)}
+              placeholder="Write your discussion content in Markdown (code blocks, bold, lists supported)..."
+              className="w-full bg-[#131316] border border-zinc-800 rounded-lg p-3 text-sm text-zinc-200 placeholder-zinc-600 outline-none focus:border-zinc-600 resize-y min-h-[160px] font-mono"
+              maxLength={20000}
+            />
+          ) : (
+            <div className="w-full bg-[#131316] border border-zinc-800 rounded-lg p-3 text-sm text-zinc-200 min-h-[160px] overflow-y-auto max-h-[300px]">
+              {newContent.trim() ? (
+                <div className="prose prose-invert prose-sm max-w-none">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{newContent}</ReactMarkdown>
+                </div>
+              ) : (
+                <p className="text-zinc-600 italic">Nothing to preview yet.</p>
+              )}
+            </div>
+          )}
           <div className="flex justify-end gap-2">
             <button onClick={() => setView("list")} className="btn-ide">Cancel</button>
             <button
@@ -332,14 +374,28 @@ const Discussions = ({ problemId }) => {
             )}
           </div>
           <div className="flex items-center gap-2 text-[10px] text-zinc-500 mb-3">
-            <span>by {d.userId?.firstName || "Unknown"}</span>
+            <span>
+              by{" "}
+              {d.userId?._id ? (
+                <NavLink
+                  to={`/profile/${d.userId._id}`}
+                  className="text-zinc-300 hover:text-blue-400 hover:underline transition-colors"
+                >
+                  {d.userId?.firstName || "Unknown"}
+                </NavLink>
+              ) : (
+                d.userId?.firstName || "Unknown"
+              )}
+            </span>
             <span>·</span>
             <span>{new Date(d.createdAt).toLocaleString()}</span>
             {d.type === "editorial" && (
               <span className="px-1.5 py-0.5 rounded bg-purple-950/40 text-purple-400">editorial</span>
             )}
           </div>
-          <pre className="text-sm text-zinc-200 whitespace-pre-wrap font-mono mb-3">{d.content}</pre>
+          <div className="prose prose-invert prose-sm max-w-none text-sm text-zinc-200 mb-3">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{d.content}</ReactMarkdown>
+          </div>
           <div className="flex items-center gap-3">
             <button
               onClick={() => handleToggleDiscussionUpvote(d._id, d.hasUpvoted)}
@@ -365,10 +421,21 @@ const Discussions = ({ problemId }) => {
               d.comments.map((c) => (
                 <div key={c._id} className="rounded-lg border border-zinc-800 bg-[#131316] p-3">
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs text-zinc-400">{c.userId?.firstName || "Unknown"}</span>
+                    {c.userId?._id ? (
+                      <NavLink
+                        to={`/profile/${c.userId._id}`}
+                        className="text-xs text-zinc-400 hover:text-blue-400 hover:underline transition-colors font-medium"
+                      >
+                        {c.userId?.firstName || "Unknown"}
+                      </NavLink>
+                    ) : (
+                      <span className="text-xs text-zinc-400">{c.userId?.firstName || "Unknown"}</span>
+                    )}
                     <span className="text-[10px] text-zinc-600">{new Date(c.createdAt).toLocaleString()}</span>
                   </div>
-                  <pre className="text-sm text-zinc-200 whitespace-pre-wrap font-mono mb-2">{c.content}</pre>
+                  <div className="prose prose-invert prose-sm max-w-none text-xs text-zinc-300 mb-2">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{c.content}</ReactMarkdown>
+                  </div>
                   <button
                     onClick={() => handleToggleCommentUpvote(c._id, c.hasUpvoted)}
                     className={`flex items-center gap-1 text-xs ${c.hasUpvoted ? "text-blue-400" : "text-zinc-500 hover:text-zinc-300"}`}
@@ -435,10 +502,13 @@ const Discussions = ({ problemId }) => {
       ) : (
         <div className="space-y-2">
           {discussions.map((d) => (
-            <button
+            <div
               key={d._id}
+              role="button"
+              tabIndex={0}
               onClick={() => { fetchDiscussion(d._id); setView("detail"); }}
-              className="w-full text-left rounded-lg border border-zinc-800 bg-[#131316] p-3 hover:border-zinc-600 transition-colors"
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { fetchDiscussion(d._id); setView("detail"); } }}
+              className="w-full text-left rounded-lg border border-zinc-800 bg-[#131316] p-3 hover:border-zinc-600 transition-colors cursor-pointer"
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-1 min-w-0">
@@ -450,7 +520,20 @@ const Discussions = ({ problemId }) => {
                     )}
                   </div>
                   <div className="flex items-center gap-2 text-[10px] text-zinc-500">
-                    <span>by {d.userId?.firstName || "Unknown"}</span>
+                    <span>
+                      by{" "}
+                      {d.userId?._id ? (
+                        <NavLink
+                          to={`/profile/${d.userId._id}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="text-zinc-400 hover:text-blue-400 hover:underline transition-colors"
+                        >
+                          {d.userId?.firstName || "Unknown"}
+                        </NavLink>
+                      ) : (
+                        d.userId?.firstName || "Unknown"
+                      )}
+                    </span>
                     <span>·</span>
                     <span>{new Date(d.createdAt).toLocaleDateString()}</span>
                   </div>
@@ -466,7 +549,7 @@ const Discussions = ({ problemId }) => {
                   </span>
                 </div>
               </div>
-            </button>
+            </div>
           ))}
         </div>
       )}
