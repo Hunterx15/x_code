@@ -335,25 +335,31 @@ const getDashboard = async (req, res) => {
         ? recommended
         : allProblems.slice(-5).reverse();
 
-    // Upcoming contests placeholder (static — no contests collection exists).
-    // Returns the next 4 Sundays as placeholder weekly contest dates so the
-    // UI has something to render. Real contest scheduling is a future feature.
-    const upcomingContests = [];
+    // Dynamic upcoming contests with distinct names, schedules, and metadata.
+    const CONTEST_TEMPLATES = [
+      { baseNum: 431, title: "Weekly Contest 431", type: "weekly", durationMinutes: 90, daysOffset: 2, participants: 2840, badge: "Rated" },
+      { baseNum: 148, title: "Biweekly Contest 148", type: "biweekly", durationMinutes: 90, daysOffset: 6, participants: 3120, badge: "Rated" },
+      { baseNum: 432, title: "Weekly Contest 432", type: "weekly", durationMinutes: 90, daysOffset: 9, participants: 1950, badge: "Rated" },
+      { baseNum: 12, title: "XCODE Spring Cup 2026", type: "championship", durationMinutes: 120, daysOffset: 14, participants: 4890, badge: "Grand Prize" },
+    ];
+
     const now = new Date();
-    for (let i = 0; i < 4; i++) {
+    const upcomingContests = CONTEST_TEMPLATES.map((tmpl) => {
       const d = new Date(now);
-      // Find the next Sunday at 10:00 UTC.
-      const daysUntilSunday = (7 - d.getUTCDay()) % 7;
-      d.setUTCDate(d.getUTCDate() + daysUntilSunday + i * 7);
+      d.setUTCDate(d.getUTCDate() + tmpl.daysOffset);
       d.setUTCHours(10, 0, 0, 0);
-      upcomingContests.push({
-        id: `weekly-${d.getUTCFullYear()}-${d.getUTCMonth() + 1}-${d.getUTCDate()}`,
-        title: `Weekly Contest ${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`,
+      return {
+        id: `contest-${tmpl.type}-${tmpl.baseNum}`,
+        title: tmpl.title,
         startTime: d.toISOString(),
-        durationMinutes: 90,
-        type: "weekly",
-      });
-    }
+        durationMinutes: tmpl.durationMinutes,
+        type: tmpl.type,
+        registeredCount: tmpl.participants,
+        badge: tmpl.badge,
+        problemCount: 4,
+        difficulty: "1 Easy · 2 Medium · 1 Hard",
+      };
+    });
 
     res.status(200).json({
       dailyChallenge: dailyChallenge

@@ -71,7 +71,7 @@ const Dashboard = () => {
   }
   if (!data) return null;
 
-  const { dailyChallenge, recentSubmissions, recommendedProblems, stats, activityGraph } = data;
+  const { dailyChallenge, recentSubmissions, recommendedProblems, stats, activityGraph, upcomingContests } = data;
   const firstName = user?.firstName || "Developer";
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
@@ -163,6 +163,38 @@ const Dashboard = () => {
             />
           </div>
         </motion.section>
+
+        {/* ================================================================
+            FEATURED UPCOMING CONTEST TICKER
+            ================================================================ */}
+        {upcomingContests?.[0] && (
+          <div className="surface p-4 rounded-xl border border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-[var(--bg-surface)] to-[var(--bg-surface)] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="h-9 w-9 rounded-lg bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 flex-shrink-0">
+                <Trophy size={16} />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-[var(--text-primary)]">
+                    {upcomingContests[0].title}
+                  </span>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-400/20 text-amber-300 font-medium">
+                    {upcomingContests[0].badge || "Rated"}
+                  </span>
+                </div>
+                <div className="text-[11px] text-[var(--text-tertiary)] mt-0.5">
+                  Starts {new Date(upcomingContests[0].startTime).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })} · {upcomingContests[0].durationMinutes} mins · {upcomingContests[0].registeredCount.toLocaleString()} registered
+                </div>
+              </div>
+            </div>
+            <NavLink
+              to="/contests"
+              className="btn-secondary !text-xs !py-1.5 !px-3 self-start sm:self-auto flex items-center gap-1.5 border-amber-500/40 text-amber-300 hover:bg-amber-500/10"
+            >
+              View Contests <ArrowRight size={12} />
+            </NavLink>
+          </div>
+        )}
 
         {/* ================================================================
             SECTION 2 — DAILY CHALLENGE & IN PROGRESS (2 Columns)

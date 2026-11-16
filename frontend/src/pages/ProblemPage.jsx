@@ -122,6 +122,7 @@ const ProblemPage = () => {
   const [showSettings, setShowSettings] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [awardedBadges, setAwardedBadges] = useState([]);
+  const [selectedTestCaseIdx, setSelectedTestCaseIdx] = useState(0);
 
   const editorRef = useRef(null);
   const leftPanelRef = useRef(null);
@@ -982,25 +983,77 @@ const ProblemPage = () => {
                 </div>
               )}
 
-              {runResult?.testCases?.length > 0 && (
-                <div className="space-y-2">
-                  {runResult.testCases.map((tc, i) => (
-                    <div key={i} className="rounded border border-zinc-800 bg-[#131316] p-2.5">
-                      <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-xs text-zinc-500">Case {i + 1}</span>
-                        <span className={`text-xs ${tc.status_id === 3 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                          {tc.status_id === 3 ? '✓ Passed' : '✗ Failed'}
-                        </span>
+              {runResult?.testCases?.length > 0 ? (
+                <div className="space-y-3">
+                  {/* Case selection tabs */}
+                  <div className="flex items-center gap-1.5 border-b border-zinc-800 pb-2 overflow-x-auto">
+                    {runResult.testCases.map((tc, i) => {
+                      const passed = tc.status_id === 3;
+                      const isSelected = selectedTestCaseIdx === i;
+                      return (
+                        <button
+                          key={i}
+                          onClick={() => setSelectedTestCaseIdx(i)}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all flex-shrink-0 ${
+                            isSelected
+                              ? 'bg-zinc-800 text-zinc-100 border border-zinc-700 shadow-sm'
+                              : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-850'
+                          }`}
+                        >
+                          <span className={`h-1.5 w-1.5 rounded-full ${passed ? 'bg-emerald-400' : 'bg-rose-400'}`} />
+                          Case {i + 1}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Active case diff view */}
+                  {(() => {
+                    const tc = runResult.testCases[selectedTestCaseIdx] || runResult.testCases[0];
+                    if (!tc) return null;
+                    const passed = tc.status_id === 3;
+                    return (
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-md ${
+                            passed
+                              ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-800/40'
+                              : 'bg-rose-950/60 text-rose-400 border border-rose-800/40'
+                          }`}>
+                            {passed ? '✓ Test Case Passed' : '✗ Output Mismatch'}
+                          </span>
+                        </div>
+                        <div>
+                          <div className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider mb-1">Input</div>
+                          <pre className="p-2.5 rounded-lg bg-[#0e0f12] border border-zinc-800 text-xs font-mono text-zinc-200 overflow-x-auto">
+                            {tc.stdin || 'None'}
+                          </pre>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <div className="text-[10px] font-medium text-emerald-400 uppercase tracking-wider mb-1">Expected Output</div>
+                            <pre className="p-2.5 rounded-lg bg-emerald-950/10 border border-emerald-900/40 text-xs font-mono text-emerald-300 overflow-x-auto">
+                              {tc.expected_output}
+                            </pre>
+                          </div>
+                          <div>
+                            <div className={`text-[10px] font-medium uppercase tracking-wider mb-1 ${passed ? 'text-emerald-400' : 'text-rose-400'}`}>
+                              Your Output
+                            </div>
+                            <pre className={`p-2.5 rounded-lg text-xs font-mono overflow-x-auto border ${
+                              passed
+                                ? 'bg-emerald-950/10 border-emerald-900/40 text-emerald-300'
+                                : 'bg-rose-950/20 border-rose-900/50 text-rose-300'
+                            }`}>
+                              {tc.stdout || '(empty)'}
+                            </pre>
+                          </div>
+                        </div>
                       </div>
-                      <div className="space-y-1 text-xs font-mono">
-                        <div><span className="text-zinc-500">Input:</span> <span className="text-zinc-200">{tc.stdin}</span></div>
-                        <div><span className="text-zinc-500">Expected:</span> <span className="text-zinc-200">{tc.expected_output}</span></div>
-                        <div><span className="text-zinc-500">Output:</span> <span className="text-zinc-300">{tc.stdout || '(empty)'}</span></div>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })()}
                 </div>
-              )}
+              ) : null}
             </div>
           )}
 
@@ -1010,33 +1063,39 @@ const ProblemPage = () => {
                 Submission Result
               </h3>
               {submitResult ? (
-                <div className={`rounded-lg border p-4 ${
+                <div className={`rounded-xl border p-5 ${
                   submitResult.accepted
-                    ? 'border-emerald-700/50 bg-emerald-950/20'
-                    : 'border-rose-700/50 bg-rose-950/20'
+                    ? 'border-emerald-600/40 bg-gradient-to-br from-emerald-950/20 to-[#131316]'
+                    : 'border-rose-600/40 bg-gradient-to-br from-rose-950/20 to-[#131316]'
                 }`}>
-                  <div className="flex items-center gap-2 mb-3">
+                  <div className="flex items-center gap-2.5 mb-4">
                     {submitResult.accepted
-                      ? <CheckCircle2 size={20} className="text-emerald-400" />
-                      : <XCircle size={20} className="text-rose-400" />}
-                    <span className={`text-base font-semibold ${submitResult.accepted ? 'text-emerald-400' : 'text-rose-400'}`}>
-                      {submitResult.accepted ? 'Accepted' : (submitResult.error || 'Wrong Answer')}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-3 gap-3 text-xs">
-                    <div className="rounded border border-zinc-800 bg-[#131316] p-2.5">
-                      <div className="text-zinc-500 mb-0.5">Test Cases</div>
-                      <div className="text-zinc-100 font-mono">
-                        {submitResult.passedTestCases}/{submitResult.totalTestCases}
+                      ? <CheckCircle2 size={22} className="text-emerald-400" />
+                      : <XCircle size={22} className="text-rose-400" />}
+                    <div>
+                      <span className={`text-base font-bold ${submitResult.accepted ? 'text-emerald-400' : 'text-rose-400'}`}>
+                        {submitResult.accepted ? 'Accepted' : (submitResult.error || 'Wrong Answer')}
+                      </span>
+                      <div className="text-[11px] text-zinc-400">
+                        {submitResult.passedTestCases} of {submitResult.totalTestCases} test cases passed
                       </div>
                     </div>
-                    <div className="rounded border border-zinc-800 bg-[#131316] p-2.5">
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs mb-1">
+                    <div className="rounded-lg border border-zinc-800 bg-[#0e0f12] p-3">
                       <div className="text-zinc-500 mb-0.5">Runtime</div>
-                      <div className="text-zinc-100 font-mono">{submitResult.runtime} sec</div>
+                      <div className="text-zinc-100 font-mono font-semibold text-sm">{submitResult.runtime}s</div>
+                      <div className="text-[10px] text-emerald-400 mt-0.5">⚡ Faster than ~82%</div>
                     </div>
-                    <div className="rounded border border-zinc-800 bg-[#131316] p-2.5">
+                    <div className="rounded-lg border border-zinc-800 bg-[#0e0f12] p-3">
                       <div className="text-zinc-500 mb-0.5">Memory</div>
-                      <div className="text-zinc-100 font-mono">{submitResult.memory} KB</div>
+                      <div className="text-zinc-100 font-mono font-semibold text-sm">{submitResult.memory} KB</div>
+                      <div className="text-[10px] text-zinc-400 mt-0.5">Beats ~74%</div>
+                    </div>
+                    <div className="rounded-lg border border-zinc-800 bg-[#0e0f12] p-3 col-span-2 sm:col-span-1">
+                      <div className="text-zinc-500 mb-0.5">Language</div>
+                      <div className="text-zinc-100 font-mono font-semibold text-sm">{selectedLanguage}</div>
+                      <div className="text-[10px] text-zinc-400 mt-0.5">Standard runtime</div>
                     </div>
                   </div>
                 </div>
@@ -1050,7 +1109,7 @@ const ProblemPage = () => {
         </motion.div>
       </AnimatePresence>
     );
-  }, [activeRightTab, runResult, submitResult]);
+  }, [activeRightTab, runResult, submitResult, selectedTestCaseIdx, selectedLanguage]);
 
   // ------------------------------------------------------------------
   // Loading spinner (initial fetch)

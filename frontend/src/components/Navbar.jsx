@@ -30,6 +30,7 @@ import {
 const NAV_ITEMS = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/problems", label: "Problems", icon: Code2 },
+  { to: "/contests", label: "Contests", icon: Sparkles },
   { to: "/leaderboard", label: "Leaderboard", icon: Trophy },
   { to: "/notes", label: "Notes", icon: StickyNote },
 ];
@@ -370,7 +371,5 @@ const Navbar = () => {
     </>
   );
 };
-
-export default Navbar;
 
 export default Navbar;

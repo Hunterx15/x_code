@@ -110,16 +110,19 @@ const googleAuthCallback = async (req, res) => {
         user.avatarUrl = avatarUrl;
         await user.save();
       } else {
-        // Brand new Google user. Derive a firstName from the Google display name.
-        const firstName = name.split(" ")[0] || "GoogleUser";
+        // Brand new Google user. Derive clean firstName and lastName from Google profile.
+        const nameParts = (name || "").trim().split(/\s+/).filter(Boolean);
+        let firstName = nameParts[0] || email.split("@")[0] || "Developer";
+        if (firstName.length < 3) firstName = firstName.padEnd(3, "_");
+        const lastName = nameParts.slice(1).join(" ") || "";
+
         user = await User.create({
-          firstName,
+          firstName: firstName.slice(0, 20),
+          lastName: lastName.slice(0, 20),
           emailId: email,
           googleId,
           avatarUrl,
           role: "user",
-          // password intentionally omitted — schema's conditional `required`
-          // evaluates to false because googleId is truthy.
         });
       }
     } else {

@@ -45,6 +45,7 @@ const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Homepage = lazy(() => import("./pages/Homepage"));
 const Profile = lazy(() => import("./pages/Profile"));
 const Leaderboard = lazy(() => import("./pages/Leaderboard"));
+const Contests = lazy(() => import("./pages/Contests"));
 const NotesPage = lazy(() => import("./pages/Notes"));
 const ProblemPage = lazy(() => import("./pages/ProblemPage"));
 const Admin = lazy(() => import("./pages/Admin"));
@@ -120,6 +121,7 @@ function App() {
             <Route path="/profile" element={<Profile />} />
             <Route path="/profile/:userId" element={<Profile />} />
             <Route path="/leaderboard" element={<Leaderboard />} />
+            <Route path="/contests" element={<Contests />} />
             <Route path="/notes" element={<NotesPage />} />
             <Route path="/admin" element={user?.role === "admin" ? <Admin /> : <Navigate to="/dashboard" />} />
             <Route path="/admin/create" element={user?.role === "admin" ? <AdminPanel /> : <Navigate to="/dashboard" />} />

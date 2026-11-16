@@ -213,6 +213,34 @@ function Homepage() {
       </div>
 
       {/* ================================================================
+          CURATED STUDY TRACKS / ROADMAPS
+          ================================================================ */}
+      <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-1">
+        {[
+          { label: "All Topics", tag: "all", icon: "🌐" },
+          { label: "Arrays & Hashing", tag: "array", icon: "📦" },
+          { label: "Trees & Graphs", tag: "graph", icon: "🌲" },
+          { label: "Dynamic Programming", tag: "dp", icon: "⚡" },
+          { label: "Binary Search", tag: "binarySearch", icon: "🎯" },
+          { label: "Linked Lists", tag: "linkedList", icon: "🔗" },
+          { label: "Math & Logic", tag: "math", icon: "📐" },
+        ].map((track) => (
+          <button
+            key={track.tag}
+            onClick={() => updateFilter("tag", track.tag)}
+            className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+              filters.tag === track.tag
+                ? "bg-[var(--accent-soft)] border-[var(--accent)] text-[var(--accent)] shadow-sm"
+                : "surface border-[var(--border-subtle)] text-[var(--text-secondary)] hover:border-[var(--border-default)] hover:text-[var(--text-primary)]"
+            }`}
+          >
+            <span>{track.icon}</span>
+            <span>{track.label}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* ================================================================
           SEARCH & INTERACTIVE FILTER PILLS
           ================================================================ */}
       <div className="space-y-3">
