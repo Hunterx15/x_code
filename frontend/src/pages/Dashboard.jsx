@@ -9,47 +9,25 @@ import {
   Trophy,
   TrendingUp,
   Target,
-  Calendar,
-  ChevronRight,
   Sparkles,
   Code2,
+  Clock,
+  ArrowRight,
+  Play,
+  Activity,
   CheckCircle2,
   XCircle,
-  Clock,
-  Award,
-  ArrowRight,
+  ChevronRight,
   Bookmark,
-  Zap,
-  Play,
-  Lightbulb,
-  Bug,
-  BookOpen,
-  StickyNote,
-  Search,
-  Brain,
-  Crown,
-  Medal,
-  Star,
-  Activity,
-  CircleDot,
 } from "lucide-react";
 
 // ===========================================================================
-// XCODE Dashboard — the most important page in the application.
-// A developer-focused product dashboard that motivates users to practice
-// coding every day. Not an admin dashboard.
-//
-// 10 sections:
-//   1. Hero — welcome + streak/solved/rating/rank + 3 CTA buttons
-//   2. Quick Actions — 6 action cards with gradients
-//   3. Statistics — premium metrics with visual breakdowns
-//   4. Continue Learning — recently viewed problems
-//   5. Daily Challenge — featured premium card
-//   6. AI Mentor — Cursor-inspired AI section
-//   7. Activity Heatmap — GitHub-style contribution graph
-//   8. Recommended Problems — horizontal cards by category
-//   9. Recent Activity — timeline UI
-//  10. Achievements — badge section
+// XCODE Dashboard — Sleek, High-Impact Developer Workspace
+// Focused strictly on high-utility components:
+//   1. Command Hero (Key metrics + direct CTA)
+//   2. Daily Challenge & Continue Learning
+//   3. Solving Progress & 90-Day Activity Heatmap
+//   4. Recommended Problems & Live Submissions Feed
 // ===========================================================================
 
 const Dashboard = () => {
@@ -57,30 +35,28 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [recentlyViewed, setRecentlyViewed] = useState([]);
-  const [bookmarks, setBookmarks] = useState([]);
-  const [achievements, setAchievements] = useState({ earned: [], available: [] });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let cancelled = false;
     const fetchAll = async () => {
       try {
-        const [dashRes, rvRes, bmRes, achRes] = await Promise.all([
+        const [dashRes, rvRes] = await Promise.all([
           axiosClient.get("/user/dashboard"),
           axiosClient.get("/user/recentlyViewed").catch(() => ({ data: { recentlyViewed: [] } })),
-          axiosClient.get("/user/bookmarks").catch(() => ({ data: { bookmarks: [] } })),
-          axiosClient.get("/user/achievements").catch(() => ({ data: { earned: [], available: [] } })),
         ]);
-        setData(dashRes.data);
-        setRecentlyViewed(rvRes.data.recentlyViewed || []);
-        setBookmarks(bmRes.data.bookmarks || []);
-        setAchievements(achRes.data || { earned: [], available: [] });
+        if (!cancelled) {
+          setData(dashRes.data);
+          setRecentlyViewed(rvRes.data.recentlyViewed || []);
+        }
       } catch (err) {
         console.error("Dashboard fetch error:", err);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
     fetchAll();
+    return () => { cancelled = true; };
   }, []);
 
   if (loading) {
@@ -88,7 +64,7 @@ const Dashboard = () => {
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="flex flex-col items-center gap-3">
           <div className="h-6 w-6 rounded-full border-2 border-[var(--border-default)] border-t-[var(--accent)] animate-spin" />
-          <span className="text-xs text-[var(--text-tertiary)]">Loading your dashboard…</span>
+          <span className="text-xs text-[var(--text-tertiary)]">Loading workspace…</span>
         </div>
       </div>
     );
@@ -96,496 +72,382 @@ const Dashboard = () => {
   if (!data) return null;
 
   const { dailyChallenge, recentSubmissions, recommendedProblems, stats, activityGraph } = data;
-  const firstName = user?.firstName || "there";
+  const firstName = user?.firstName || "Developer";
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
-
-  // Monthly goal progress (assume 50 problems/month)
-  const monthlyGoal = 50;
-  const monthlyProgress = Math.min((stats.totalSolved % monthlyGoal) / monthlyGoal * 100, 100);
-  const problemsToGoal = Math.max(monthlyGoal - (stats.totalSolved % monthlyGoal), 0);
+  const totalSubmissions90d = activityGraph.reduce((s, d) => s + d.submissions, 0);
 
   return (
-    <div className="gradient-bg-hero min-h-[calc(100vh-3.5rem)]">
+    <div className="min-h-[calc(100vh-3.5rem)] bg-[var(--bg-base)]">
       <div className="max-w-7xl mx-auto px-4 lg:px-6 py-6 lg:py-8 space-y-6">
 
         {/* ================================================================
-            SECTION 1 — HERO
+            SECTION 1 — HERO & COMMAND BAR
             ================================================================ */}
         <motion.section
-          initial={{ opacity: 0, y: 16 }}
+          initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="relative overflow-hidden glass-card p-6 lg:p-8"
+          transition={{ duration: 0.4 }}
+          className="relative overflow-hidden glass-card p-6 lg:p-7 border border-[var(--border-default)] rounded-2xl"
         >
-          {/* Decorative gradient orbs */}
-          <div className="absolute top-0 right-0 w-64 h-64 bg-[var(--accent-glow)] rounded-full blur-3xl opacity-50" />
-          <div className="absolute bottom-0 left-1/3 w-48 h-48 bg-[var(--purple-soft)] rounded-full blur-3xl opacity-30" />
-
-          <div className="relative flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-            {/* Left: greeting + stats */}
-            <div className="flex-1">
-              <p className="text-[14px] text-[var(--text-tertiary)] mb-1">
-                {greeting},
-              </p>
-              <h1 className="text-3xl lg:text-4xl font-bold tracking-tight mb-2">
-                Welcome back, <span className="gradient-text-blue">{firstName}</span> 👋
+          <div className="absolute top-0 right-0 w-80 h-80 bg-[var(--accent-glow)] rounded-full blur-3xl opacity-30 pointer-events-none" />
+          <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium uppercase tracking-wider text-[var(--text-tertiary)]">
+                  {greeting}
+                </span>
+                <span className="h-1.5 w-1.5 rounded-full bg-[var(--accent)]" />
+                <span className="text-xs text-[var(--text-secondary)]">XCODE Workspace</span>
+              </div>
+              <h1 className="text-2xl lg:text-3xl font-bold tracking-tight">
+                Welcome back, <span className="gradient-text-blue">{firstName}</span>
               </h1>
-              <p className="text-[14px] text-[var(--text-secondary)] mb-5">
+              <p className="text-xs lg:text-[13px] text-[var(--text-secondary)] max-w-xl leading-relaxed">
                 {stats.streak > 0 ? (
-                  <>Keep your <span className="text-[var(--orange)] font-medium">{stats.streak}-day streak</span> alive. You're <span className="text-[var(--accent)] font-medium">{problemsToGoal} problems</span> away from your monthly goal.</>
+                  <>You are on a <span className="text-[var(--orange)] font-semibold">{stats.streak}-day streak</span>! Solve a problem today to keep your momentum going.</>
                 ) : (
-                  <>Start a new streak today. Solve a problem to begin your journey.</>
+                  <>Sharpen your algorithmic skills today. Start by completing today's daily challenge.</>
                 )}
               </p>
-
-              {/* Inline stats */}
-              <div className="flex flex-wrap items-center gap-4 mb-5">
-                <InlineStat icon={Flame} value={stats.streak} label="streak" color="text-[var(--orange)]" />
-                <Divider />
-                <InlineStat icon={Trophy} value={stats.totalSolved} label="solved" color="text-[var(--accent)]" />
-                <Divider />
-                <InlineStat icon={TrendingUp} value={`${stats.acceptanceRate}%`} label="acceptance" color="text-[var(--purple)]" />
-                <Divider />
-                <InlineStat icon={Target} value={`#${Math.max(1, 1000 - stats.totalSolved * 10)}`} label="rank" color="text-[var(--success)]" />
-              </div>
-
-              {/* CTA buttons */}
-              <div className="flex flex-wrap gap-2.5">
-                <button onClick={() => navigate("/problems")} className="btn-primary !py-2.5">
-                  <Play size={15} /> Continue Solving
-                </button>
-                {dailyChallenge && (
-                  <button onClick={() => navigate(`/problem/${dailyChallenge._id}`)} className="btn-secondary !py-2.5">
-                    <Sparkles size={15} /> Daily Challenge
-                  </button>
-                )}
-                <button onClick={() => navigate("/problems")} className="btn-ghost !py-2.5">
-                  <Sparkles size={15} className="text-[var(--purple)]" /> AI Mentor
-                </button>
-              </div>
             </div>
 
-            {/* Right: monthly goal ring */}
-            <div className="flex-shrink-0 hidden lg:flex flex-col items-center">
-              <MonthlyGoalRing progress={monthlyProgress} solved={stats.totalSolved % monthlyGoal} goal={monthlyGoal} />
+            {/* Quick Primary Actions */}
+            <div className="flex flex-wrap items-center gap-2.5">
+              {dailyChallenge && (
+                <button
+                  onClick={() => navigate(`/problem/${dailyChallenge._id}`)}
+                  className="btn-primary !py-2.5 !px-4 text-xs font-medium flex items-center gap-2 shadow-lg shadow-blue-500/10"
+                >
+                  <Sparkles size={14} /> Solve Daily Challenge
+                </button>
+              )}
+              <button
+                onClick={() => navigate("/problems")}
+                className="btn-secondary !py-2.5 !px-4 text-xs font-medium flex items-center gap-2"
+              >
+                <Code2 size={14} /> Browse Catalog
+              </button>
             </div>
+          </div>
+
+          {/* Key Metrics Banner */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6 pt-5 border-t border-[var(--border-subtle)]">
+            <MetricTile
+              icon={Flame}
+              label="Solving Streak"
+              value={`${stats.streak} Days`}
+              color="text-[var(--orange)]"
+              badge={stats.streak > 0 ? "Active" : "Ready"}
+            />
+            <MetricTile
+              icon={Trophy}
+              label="Problems Solved"
+              value={stats.totalSolved}
+              color="text-[var(--accent)]"
+              badge={`Acc. ${stats.acceptanceRate}%`}
+            />
+            <MetricTile
+              icon={TrendingUp}
+              label="Total Submissions"
+              value={stats.totalSubmissions}
+              color="text-[var(--purple)]"
+              badge={`${stats.acceptedSubmissions} passed`}
+            />
+            <MetricTile
+              icon={Target}
+              label="Global Standing"
+              value={`#${Math.max(1, 1000 - stats.totalSolved * 10)}`}
+              color="text-[var(--success)]"
+              badge="Top 15%"
+            />
           </div>
         </motion.section>
 
         {/* ================================================================
-            SECTION 2 — QUICK ACTIONS
+            SECTION 2 — DAILY CHALLENGE & IN PROGRESS (2 Columns)
             ================================================================ */}
-        <section>
-          <SectionHeader icon={Zap} title="Quick Actions" />
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-            <QuickAction icon={Code2} label="Solve Problems" to="/problems" gradient="gradient-blue" delay={0.05} />
-            <QuickAction icon={Brain} label="Practice DSA" to="/problems" gradient="gradient-purple" delay={0.1} />
-            <QuickAction icon={Sparkles} label="Ask AI" to="/problems" gradient="gradient-green" delay={0.15} />
-            <QuickAction icon={Bookmark} label="Bookmarks" to="/profile" gradient="gradient-yellow" delay={0.2} badge={bookmarks.length} />
-            <QuickAction icon={StickyNote} label="Notes" to="/notes" gradient="gradient-orange" delay={0.25} />
-            <QuickAction icon={Trophy} label="Leaderboard" to="/leaderboard" gradient="gradient-red" delay={0.3} />
-          </div>
-        </section>
-
-        {/* ================================================================
-            SECTION 3 — STATISTICS
-            ================================================================ */}
-        <section>
-          <SectionHeader icon={TrendingUp} title="Statistics" />
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            {/* Problems Solved with difficulty breakdown */}
-            <motion.div
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, delay: 0.05 }}
-              className="glass-card p-5"
-            >
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-[11px] uppercase tracking-wider text-[var(--text-tertiary)] font-medium">Problems Solved</span>
-                <Trophy size={15} className="text-[var(--accent)]" />
-              </div>
-              <div className="text-3xl font-bold text-[var(--text-primary)] mb-3">{stats.totalSolved}</div>
-              <div className="space-y-1.5">
-                <DifficultyMiniBar label="Easy" count={stats.easy} total={stats.totalSolved} color="bg-[var(--success)]" />
-                <DifficultyMiniBar label="Medium" count={stats.medium} total={stats.totalSolved} color="bg-[var(--warning)]" />
-                <DifficultyMiniBar label="Hard" count={stats.hard} total={stats.totalSolved} color="bg-[var(--danger)]" />
-              </div>
-            </motion.div>
-
-            {/* Acceptance Rate with ring */}
-            <motion.div
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, delay: 0.1 }}
-              className="glass-card p-5 flex flex-col"
-            >
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-[11px] uppercase tracking-wider text-[var(--text-tertiary)] font-medium">Acceptance Rate</span>
-                <TrendingUp size={15} className="text-[var(--purple)]" />
-              </div>
-              <div className="flex items-center gap-4 flex-1">
-                <AcceptanceRing rate={stats.acceptanceRate} />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          {/* Daily Challenge (1/3 Col) */}
+          <div className="lg:col-span-1">
+            <div className="flex items-center justify-between mb-2.5">
+              <span className="text-xs uppercase tracking-wider text-[var(--text-tertiary)] font-semibold flex items-center gap-1.5">
+                <Sparkles size={13} className="text-[var(--warning)]" />
+                Featured Challenge
+              </span>
+              <span className="text-[10px] text-[var(--text-muted)] font-mono">24h Refresh</span>
+            </div>
+            {dailyChallenge ? (
+              <div className="glass-card p-5 border border-amber-500/20 bg-gradient-to-br from-amber-500/5 via-[var(--bg-surface)] to-[var(--bg-surface)] rounded-xl flex flex-col justify-between h-[calc(100%-1.75rem)] hover:border-amber-500/40 transition-all group">
                 <div>
-                  <div className="text-2xl font-bold text-[var(--text-primary)]">{stats.acceptanceRate}%</div>
-                  <div className="text-[11px] text-[var(--text-tertiary)] mt-0.5">
-                    {stats.acceptedSubmissions} / {stats.totalSubmissions}
+                  <div className="flex items-center justify-between gap-2 mb-3">
+                    <span className={`pill ${
+                      dailyChallenge.difficulty === "easy" ? "badge-difficulty-easy"
+                        : dailyChallenge.difficulty === "medium" ? "badge-difficulty-medium"
+                        : "badge-difficulty-hard"
+                    }`}>
+                      {dailyChallenge.difficulty}
+                    </span>
+                    <span className="text-[11px] text-[var(--text-tertiary)] font-mono flex items-center gap-1">
+                      <Clock size={11} /> ~20 min
+                    </span>
+                  </div>
+                  <h3 className="text-base font-semibold text-[var(--text-primary)] group-hover:text-[var(--accent)] transition-colors line-clamp-2 mb-2">
+                    {dailyChallenge.title}
+                  </h3>
+                  <div className="flex flex-wrap gap-1 mb-4">
+                    <span className="pill text-[10px] !py-0.5">{dailyChallenge.tags}</span>
                   </div>
                 </div>
+                <NavLink
+                  to={`/problem/${dailyChallenge._id}`}
+                  className="btn-primary !py-2 text-xs w-full flex items-center justify-center gap-1.5 mt-2"
+                >
+                  Solve Challenge <ArrowRight size={13} />
+                </NavLink>
               </div>
-            </motion.div>
-
-            {/* Current Streak with flame */}
-            <motion.div
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, delay: 0.15 }}
-              className="glass-card p-5 relative overflow-hidden"
-            >
-              <div className="absolute top-0 right-0 w-20 h-20 bg-[var(--orange-soft)] rounded-full blur-2xl" />
-              <div className="relative">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-[11px] uppercase tracking-wider text-[var(--text-tertiary)] font-medium">Current Streak</span>
-                  <Flame size={15} className="text-[var(--orange)]" />
-                </div>
-                <div className="flex items-baseline gap-1.5 mb-3">
-                  <span className="text-3xl font-bold text-[var(--orange)]">{stats.streak}</span>
-                  <span className="text-[13px] text-[var(--text-tertiary)]">days</span>
-                </div>
-                <div className="flex gap-1">
-                  {[...Array(7)].map((_, i) => (
-                    <div
-                      key={i}
-                      className={`h-1.5 flex-1 rounded-full ${i < Math.min(stats.streak, 7) ? "bg-[var(--orange)]" : "bg-[var(--border-subtle)]"}`}
-                    />
-                  ))}
-                </div>
-                <p className="text-[10px] text-[var(--text-muted)] mt-2">
-                  {stats.streak > 0 ? "Keep it going!" : "Solve today to start"}
-                </p>
+            ) : (
+              <div className="glass-card p-6 text-center text-xs text-[var(--text-tertiary)] rounded-xl">
+                No active daily challenge available.
               </div>
-            </motion.div>
-
-            {/* Weekly Progress */}
-            <motion.div
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, delay: 0.2 }}
-              className="glass-card p-5"
-            >
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-[11px] uppercase tracking-wider text-[var(--text-tertiary)] font-medium">Weekly Progress</span>
-                <Target size={15} className="text-[var(--success)]" />
-              </div>
-              <div className="text-3xl font-bold text-[var(--success)] mb-1">
-                {activityGraph.slice(-7).reduce((s, d) => s + d.submissions, 0)}
-              </div>
-              <div className="text-[11px] text-[var(--text-tertiary)] mb-3">submissions this week</div>
-              {/* Mini bar chart for last 7 days */}
-              <div className="flex items-end gap-1 h-10">
-                {activityGraph.slice(-7).map((d, i) => {
-                  const max = Math.max(...activityGraph.slice(-7).map((x) => x.submissions), 1);
-                  const h = (d.submissions / max) * 100;
-                  return (
-                    <div key={i} className="flex-1 flex items-end">
-                      <div
-                        className="w-full rounded-sm bg-[var(--success)] opacity-70 hover:opacity-100 transition-opacity"
-                        style={{ height: `${Math.max(h, 4)}%` }}
-                        title={`${d.date}: ${d.submissions} submissions`}
-                      />
-                    </div>
-                  );
-                })}
-              </div>
-            </motion.div>
+            )}
           </div>
-        </section>
 
-        {/* ================================================================
-            SECTION 4 + 5 — CONTINUE LEARNING + DAILY CHALLENGE (2-col)
-            ================================================================ */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-          {/* Continue Learning (2/3 width) */}
-          <section className="lg:col-span-2">
-            <SectionHeader icon={Clock} title="Continue Learning" />
-            <div className="glass-card p-5">
+          {/* Continue Learning / Recently Solved (2/3 Col) */}
+          <div className="lg:col-span-2">
+            <div className="flex items-center justify-between mb-2.5">
+              <span className="text-xs uppercase tracking-wider text-[var(--text-tertiary)] font-semibold flex items-center gap-1.5">
+                <Clock size={13} className="text-[var(--accent)]" />
+                Continue Learning
+              </span>
+              <NavLink to="/problems" className="text-xs text-[var(--accent)] hover:underline flex items-center gap-1">
+                View All <ChevronRight size={12} />
+              </NavLink>
+            </div>
+            <div className="glass-card rounded-xl p-2 border border-[var(--border-default)]">
               {recentlyViewed.length === 0 ? (
-                <EmptyState
-                  icon={Code2}
-                  title="No recent problems"
-                  desc="Start solving to see your progress here."
-                  cta="Browse Problems"
-                  to="/problems"
-                />
+                <div className="text-center py-10 px-4">
+                  <Code2 size={24} className="text-[var(--text-muted)] mx-auto mb-2" />
+                  <p className="text-xs text-[var(--text-secondary)]">No recently viewed problems yet.</p>
+                  <p className="text-[11px] text-[var(--text-tertiary)] mt-1 mb-3">Jump into the catalog to start practicing.</p>
+                  <button onClick={() => navigate("/problems")} className="btn-secondary !text-xs !py-1.5">
+                    Start Solving
+                  </button>
+                </div>
               ) : (
-                <div className="space-y-1.5">
-                  {recentlyViewed.slice(0, 5).map((p, i) => (
+                <div className="divide-y divide-[var(--border-subtle)]">
+                  {recentlyViewed.slice(0, 4).map((p) => (
                     <NavLink
                       key={p._id}
                       to={`/problem/${p._id}`}
-                      className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-[var(--bg-surface-hover)] transition-colors group"
+                      className="flex items-center justify-between p-3 rounded-lg hover:bg-[var(--bg-surface-hover)] transition-colors group"
                     >
-                      <span className="text-[11px] text-[var(--text-muted)] font-mono w-4">{i + 1}</span>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-[13px] text-[var(--text-primary)] truncate group-hover:text-[var(--accent)] transition-colors">
-                          {p.title}
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="h-7 w-7 rounded-lg bg-[var(--bg-elevated)] border border-[var(--border-subtle)] flex items-center justify-center text-[var(--text-secondary)] flex-shrink-0 group-hover:border-[var(--accent)] group-hover:text-[var(--accent)] transition-colors">
+                          <Code2 size={13} />
                         </div>
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                          <span className={`text-[10px] ${
-                            p.difficulty === "easy" ? "text-[var(--success)]"
-                              : p.difficulty === "medium" ? "text-[var(--warning)]"
-                              : "text-[var(--danger)]"
-                          }`}>{p.difficulty}</span>
-                          <span className="text-[10px] text-[var(--text-muted)]">·</span>
-                          <span className="text-[10px] text-[var(--text-tertiary)]">{p.tags}</span>
-                          {p.viewedAt && (
-                            <>
-                              <span className="text-[10px] text-[var(--text-muted)]">·</span>
-                              <span className="text-[10px] text-[var(--text-muted)]">{formatRelative(p.viewedAt)}</span>
-                            </>
-                          )}
+                        <div className="min-w-0">
+                          <div className="text-xs font-medium text-[var(--text-primary)] truncate group-hover:text-[var(--accent)] transition-colors">
+                            {p.title}
+                          </div>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className={`text-[10px] font-medium ${
+                              p.difficulty === "easy" ? "text-[var(--success)]"
+                                : p.difficulty === "medium" ? "text-[var(--warning)]"
+                                : "text-[var(--danger)]"
+                            }`}>
+                              {p.difficulty}
+                            </span>
+                            <span className="text-[10px] text-[var(--text-muted)]">·</span>
+                            <span className="text-[10px] text-[var(--text-tertiary)] truncate">{p.tags}</span>
+                          </div>
                         </div>
                       </div>
-                      <ChevronRight size={14} className="text-[var(--text-muted)] group-hover:text-[var(--accent)] transition-colors" />
+                      <div className="flex items-center gap-2 text-[11px] text-[var(--text-tertiary)] flex-shrink-0">
+                        {p.viewedAt && <span>{formatRelative(p.viewedAt)}</span>}
+                        <ArrowRight size={13} className="text-[var(--text-muted)] group-hover:text-[var(--accent)] transition-colors" />
+                      </div>
                     </NavLink>
                   ))}
                 </div>
               )}
             </div>
-          </section>
-
-          {/* Daily Challenge (1/3 width) */}
-          <section>
-            <SectionHeader icon={Sparkles} title="Daily Challenge" />
-            {dailyChallenge ? (
-              <NavLink
-                to={`/problem/${dailyChallenge._id}`}
-                className="block gradient-border p-5 rounded-xl group transition-transform hover:scale-[1.01] h-[calc(100%-2rem)]"
-              >
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--accent-soft)]">
-                    <Sparkles size={16} className="text-[var(--accent)]" />
-                  </div>
-                  <span className="text-[11px] uppercase tracking-wider text-[var(--text-tertiary)] font-medium">
-                    Today's Problem
-                  </span>
-                </div>
-                <h4 className="text-[15px] font-semibold mb-3 group-hover:text-[var(--accent)] transition-colors">
-                  {dailyChallenge.title}
-                </h4>
-                <div className="flex items-center gap-2 mb-4">
-                  <span className={`pill ${
-                    dailyChallenge.difficulty === "easy" ? "badge-difficulty-easy"
-                      : dailyChallenge.difficulty === "medium" ? "badge-difficulty-medium"
-                      : "badge-difficulty-hard"
-                  }`}>
-                    {dailyChallenge.difficulty}
-                  </span>
-                  <span className="pill">{dailyChallenge.tags}</span>
-                </div>
-                <div className="space-y-2 mb-4 text-[11px] text-[var(--text-tertiary)]">
-                  <div className="flex items-center gap-2">
-                    <Clock size={12} /> ~20 min estimated
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <TrendingUp size={12} /> {Math.floor(Math.random() * 30) + 60}% success rate
-                  </div>
-                </div>
-                <div className="flex items-center gap-1 text-[13px] text-[var(--accent)] font-medium">
-                  Start Challenge <ArrowRight size={13} />
-                </div>
-              </NavLink>
-            ) : (
-              <div className="glass-card p-5">
-                <EmptyState icon={Sparkles} title="No daily challenge" desc="Check back later!" />
-              </div>
-            )}
-          </section>
+          </div>
         </div>
 
         {/* ================================================================
-            SECTION 6 — AI MENTOR (Cursor-inspired)
+            SECTION 3 — SOLVING PROGRESS & ACTIVITY HEATMAP (2 Columns)
             ================================================================ */}
-        <section>
-          <SectionHeader icon={Sparkles} title="AI Mentor" />
-          <div className="glass-card p-6 relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-[var(--purple-soft)] rounded-full blur-3xl opacity-40" />
-            <div className="relative grid grid-cols-1 md:grid-cols-4 gap-4">
-              {/* Left: intro */}
-              <div className="md:col-span-1">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-purple-500 to-blue-500">
-                    <Brain size={16} className="text-white" />
-                  </div>
-                  <span className="text-[14px] font-semibold">Need help?</span>
-                </div>
-                <p className="text-[12px] text-[var(--text-secondary)] leading-relaxed mb-3">
-                  Your AI-powered coding tutor. Get hints, debug solutions, and learn
-                  optimal approaches.
-                </p>
-                <button onClick={() => navigate("/problems")} className="btn-primary !text-[12px] !py-1.5">
-                  <Sparkles size={13} /> Ask AI Mentor
-                </button>
-              </div>
-
-              {/* Right: example prompts */}
-              <div className="md:col-span-3 grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                <AIPromptCard icon={Lightbulb} title="Explain Binary Search" desc="Get a step-by-step breakdown of the algorithm" />
-                <AIPromptCard icon={BookOpen} title="Generate Revision Plan" desc="Create a study schedule based on your weak areas" />
-                <AIPromptCard icon={Bug} title="Debug My Solution" desc="Find bugs and get fix suggestions with explanations" />
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* ================================================================
-            SECTION 7 — ACTIVITY HEATMAP
-            ================================================================ */}
-        <section>
-          <SectionHeader icon={Activity} title="Activity Heatmap" />
-          <div className="glass-card p-5">
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-[12px] text-[var(--text-tertiary)]">
-                {activityGraph.reduce((s, d) => s + d.submissions, 0)} submissions in the last 90 days
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
+          {/* Solved Breakdown (2/5 Col) */}
+          <div className="lg:col-span-2">
+            <div className="flex items-center justify-between mb-2.5">
+              <span className="text-xs uppercase tracking-wider text-[var(--text-tertiary)] font-semibold flex items-center gap-1.5">
+                <Target size={13} className="text-[var(--success)]" />
+                Problem Breakdown
               </span>
-              <div className="flex items-center gap-2 text-[10px] text-[var(--text-muted)]">
-                <span>Less</span>
-                {["#161b22", "#0e4429", "#006d32", "#26a641", "#39d353"].map((c, i) => (
-                  <div key={i} className="w-2.5 h-2.5 rounded-sm" style={{ background: c }} />
-                ))}
-                <span>More</span>
+              <span className="text-xs text-[var(--text-secondary)] font-mono font-medium">
+                {stats.totalSolved} Solved
+              </span>
+            </div>
+            <div className="glass-card p-5 rounded-xl border border-[var(--border-default)] space-y-4">
+              {/* Stacked Progress Bar */}
+              <div className="h-2 w-full rounded-full bg-[var(--bg-elevated)] overflow-hidden flex">
+                <div
+                  className="bg-[var(--success)] h-full transition-all duration-500"
+                  style={{ width: `${stats.totalSolved > 0 ? (stats.easy / stats.totalSolved) * 100 : 0}%` }}
+                  title={`Easy: ${stats.easy}`}
+                />
+                <div
+                  className="bg-[var(--warning)] h-full transition-all duration-500"
+                  style={{ width: `${stats.totalSolved > 0 ? (stats.medium / stats.totalSolved) * 100 : 0}%` }}
+                  title={`Medium: ${stats.medium}`}
+                />
+                <div
+                  className="bg-[var(--danger)] h-full transition-all duration-500"
+                  style={{ width: `${stats.totalSolved > 0 ? (stats.hard / stats.totalSolved) * 100 : 0}%` }}
+                  title={`Hard: ${stats.hard}`}
+                />
+              </div>
+
+              {/* Breakdown Tiles */}
+              <div className="grid grid-cols-3 gap-2 pt-1">
+                <div className="p-2.5 rounded-lg bg-[var(--success-soft)] border border-[var(--success)]/20 text-center">
+                  <span className="text-[10px] text-[var(--success)] font-medium uppercase tracking-wider">Easy</span>
+                  <div className="text-lg font-bold text-[var(--text-primary)] mt-0.5">{stats.easy}</div>
+                </div>
+                <div className="p-2.5 rounded-lg bg-[var(--warning-soft)] border border-[var(--warning)]/20 text-center">
+                  <span className="text-[10px] text-[var(--warning)] font-medium uppercase tracking-wider">Med</span>
+                  <div className="text-lg font-bold text-[var(--text-primary)] mt-0.5">{stats.medium}</div>
+                </div>
+                <div className="p-2.5 rounded-lg bg-[var(--danger-soft)] border border-[var(--danger)]/20 text-center">
+                  <span className="text-[10px] text-[var(--danger)] font-medium uppercase tracking-wider">Hard</span>
+                  <div className="text-lg font-bold text-[var(--text-primary)] mt-0.5">{stats.hard}</div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between text-xs text-[var(--text-tertiary)] pt-2 border-t border-[var(--border-subtle)]">
+                <span>Acceptance Ratio</span>
+                <span className="font-mono text-[var(--text-primary)] font-medium">{stats.acceptanceRate}%</span>
               </div>
             </div>
-            <ActivityGraph data={activityGraph} days={90} />
           </div>
-        </section>
+
+          {/* Activity Heatmap (3/5 Col) */}
+          <div className="lg:col-span-3">
+            <div className="flex items-center justify-between mb-2.5">
+              <span className="text-xs uppercase tracking-wider text-[var(--text-tertiary)] font-semibold flex items-center gap-1.5">
+                <Activity size={13} className="text-[var(--purple)]" />
+                Submission Activity
+              </span>
+              <span className="text-xs text-[var(--text-tertiary)]">
+                {totalSubmissions90d} submissions in 90 days
+              </span>
+            </div>
+            <div className="glass-card p-5 rounded-xl border border-[var(--border-default)]">
+              <ActivityGraph data={activityGraph} days={90} />
+            </div>
+          </div>
+        </div>
 
         {/* ================================================================
-            SECTION 8 — RECOMMENDED PROBLEMS (horizontal cards)
+            SECTION 4 — RECOMMENDED & RECENT SUBMISSIONS (2 Columns)
             ================================================================ */}
-        <section>
-          <SectionHeader icon={Target} title="Recommended For You" />
-          <div className="glass-card p-5">
-            <p className="text-[12px] text-[var(--text-tertiary)] mb-4">
-              Based on your recent solves and activity
-            </p>
-            {recommendedProblems.length === 0 ? (
-              <EmptyState icon={Target} title="No recommendations yet" desc="Solve a few problems to get personalized recommendations." />
-            ) : (
-              <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-2">
-                {recommendedProblems.map((p, i) => (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          {/* Curated Recommendations */}
+          <div>
+            <div className="flex items-center justify-between mb-2.5">
+              <span className="text-xs uppercase tracking-wider text-[var(--text-tertiary)] font-semibold flex items-center gap-1.5">
+                <Code2 size={13} className="text-[var(--accent)]" />
+                Recommended Challenges
+              </span>
+              <NavLink to="/problems" className="text-xs text-[var(--accent)] hover:underline flex items-center gap-1">
+                Browse All <ChevronRight size={12} />
+              </NavLink>
+            </div>
+            <div className="glass-card p-2 rounded-xl border border-[var(--border-default)] divide-y divide-[var(--border-subtle)]">
+              {recommendedProblems.length === 0 ? (
+                <div className="text-center py-8 text-xs text-[var(--text-tertiary)]">
+                  Solve a few problems to receive personalized suggestions.
+                </div>
+              ) : (
+                recommendedProblems.slice(0, 4).map((p) => (
                   <NavLink
                     key={p._id}
                     to={`/problem/${p._id}`}
-                    className="flex-shrink-0 w-64 surface rounded-lg p-4 hover:border-[var(--border-default)] transition-all group"
+                    className="flex items-center justify-between p-3 rounded-lg hover:bg-[var(--bg-surface-hover)] transition-colors group"
                   >
-                    <div className="flex items-center justify-between mb-2">
-                      <span className={`pill ${
-                        p.difficulty === "easy" ? "badge-difficulty-easy"
-                          : p.difficulty === "medium" ? "badge-difficulty-medium"
-                          : "badge-difficulty-hard"
-                      }`}>{p.difficulty}</span>
-                      <span className="text-[10px] text-[var(--text-muted)] font-mono">#{i + 1}</span>
+                    <div className="min-w-0 pr-3">
+                      <div className="text-xs font-medium text-[var(--text-primary)] truncate group-hover:text-[var(--accent)] transition-colors">
+                        {p.title}
+                      </div>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className={`pill text-[10px] !py-0.5 ${
+                          p.difficulty === "easy" ? "badge-difficulty-easy"
+                            : p.difficulty === "medium" ? "badge-difficulty-medium"
+                            : "badge-difficulty-hard"
+                        }`}>
+                          {p.difficulty}
+                        </span>
+                        <span className="text-[10px] text-[var(--text-tertiary)]">{p.tags}</span>
+                      </div>
                     </div>
-                    <h4 className="text-[13px] font-medium text-[var(--text-primary)] mb-2 line-clamp-2 group-hover:text-[var(--accent)] transition-colors">
-                      {p.title}
-                    </h4>
-                    <div className="flex items-center gap-1 text-[11px] text-[var(--text-tertiary)]">
-                      <Code2 size={11} /> {p.tags}
-                    </div>
+                    <span className="btn-secondary !text-[11px] !py-1 !px-2.5 flex items-center gap-1 flex-shrink-0 group-hover:border-[var(--accent)] transition-colors">
+                      Solve <ArrowRight size={11} />
+                    </span>
                   </NavLink>
-                ))}
-              </div>
-            )}
+                ))
+              )}
+            </div>
           </div>
-        </section>
 
-        {/* ================================================================
-            SECTION 9 + 10 — RECENT ACTIVITY + ACHIEVEMENTS (2-col)
-            ================================================================ */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-          {/* Recent Activity — timeline */}
-          <section>
-            <SectionHeader icon={Clock} title="Recent Activity" />
-            <div className="glass-card p-5">
+          {/* Recent Submissions Feed */}
+          <div>
+            <div className="flex items-center justify-between mb-2.5">
+              <span className="text-xs uppercase tracking-wider text-[var(--text-tertiary)] font-semibold flex items-center gap-1.5">
+                <Clock size={13} className="text-[var(--text-tertiary)]" />
+                Recent Submissions
+              </span>
+              <NavLink to="/profile" className="text-xs text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors">
+                History
+              </NavLink>
+            </div>
+            <div className="glass-card p-2 rounded-xl border border-[var(--border-default)] divide-y divide-[var(--border-subtle)]">
               {recentSubmissions.length === 0 ? (
-                <EmptyState icon={Activity} title="No activity yet" desc="Your recent submissions will appear here." />
-              ) : (
-                <div className="space-y-3">
-                  {recentSubmissions.slice(0, 6).map((s, i) => (
-                    <div key={s._id} className="flex gap-3">
-                      {/* Timeline dot + line */}
-                      <div className="flex flex-col items-center">
-                        <div
-                          className={`timeline-dot ${
-                            s.status === "accepted" ? "bg-[var(--success)]" : "bg-[var(--danger)]"
-                          }`}
-                        />
-                        {i < Math.min(recentSubmissions.length, 6) - 1 && (
-                          <div className="w-px flex-1 bg-[var(--border-subtle)] mt-1" />
-                        )}
-                      </div>
-                      {/* Content */}
-                      <NavLink to={`/problem/${s.problemId}`} className="flex-1 pb-3 group">
-                        <div className="flex items-center gap-1.5 mb-0.5">
-                          {s.status === "accepted" ? (
-                            <CheckCircle2 size={12} className="text-[var(--success)]" />
-                          ) : (
-                            <XCircle size={12} className="text-[var(--danger)]" />
-                          )}
-                          <span className="text-[12px] text-[var(--text-primary)] group-hover:text-[var(--accent)] transition-colors">
-                            {s.status === "accepted" ? "Solved" : "Attempted"} {s.problemTitle}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-1.5 text-[10px] text-[var(--text-muted)]">
-                          <span className="font-mono">{s.language}</span>
-                          <span>·</span>
-                          <span>{formatRelative(s.createdAt)}</span>
-                          {s.status === "accepted" && (
-                            <>
-                              <span>·</span>
-                              <span className="font-mono">{s.runtime}s</span>
-                            </>
-                          )}
-                        </div>
-                      </NavLink>
-                    </div>
-                  ))}
+                <div className="text-center py-8 text-xs text-[var(--text-tertiary)]">
+                  No submissions recorded yet.
                 </div>
+              ) : (
+                recentSubmissions.slice(0, 4).map((s) => (
+                  <NavLink
+                    key={s._id}
+                    to={s.problemId ? `/problem/${s.problemId}` : "/problems"}
+                    className="flex items-center justify-between p-3 rounded-lg hover:bg-[var(--bg-surface-hover)] transition-colors group"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      {s.status === "accepted" ? (
+                        <CheckCircle2 size={15} className="text-[var(--success)] flex-shrink-0" />
+                      ) : (
+                        <XCircle size={15} className="text-[var(--danger)] flex-shrink-0" />
+                      )}
+                      <div className="min-w-0">
+                        <div className="text-xs font-medium text-[var(--text-primary)] truncate group-hover:text-[var(--accent)] transition-colors">
+                          {s.problemTitle || "Problem"}
+                        </div>
+                        <div className="flex items-center gap-2 text-[10px] text-[var(--text-tertiary)] font-mono mt-0.5">
+                          <span>{s.language}</span>
+                          {s.runtime && <span>· {s.runtime}s</span>}
+                        </div>
+                      </div>
+                    </div>
+                    <span className="text-[10px] text-[var(--text-muted)] flex-shrink-0">
+                      {formatRelative(s.createdAt)}
+                    </span>
+                  </NavLink>
+                ))
               )}
             </div>
-          </section>
-
-          {/* Achievements */}
-          <section>
-            <SectionHeader icon={Award} title="Achievements" />
-            <div className="glass-card p-5">
-              {achievements.earned.length === 0 ? (
-                <EmptyState icon={Award} title="No achievements yet" desc="Solve problems to earn badges!" />
-              ) : (
-                <div className="grid grid-cols-2 gap-2.5">
-                  {achievements.earned.slice(0, 6).map((b) => (
-                    <div
-                      key={b.id}
-                      className={`p-3 rounded-lg border bg-gradient-to-br to-[var(--bg-surface)] ${
-                        b.tier === "gold" ? "from-yellow-950/30 border-yellow-700/40 text-yellow-400"
-                          : b.tier === "silver" ? "from-zinc-700/30 border-zinc-500/40 text-zinc-300"
-                          : b.tier === "platinum" ? "from-cyan-950/30 border-cyan-600/40 text-cyan-400"
-                          : "from-amber-950/30 border-amber-700/40 text-amber-400"
-                      }`}
-                      title={b.description}
-                    >
-                      <div className="flex items-center gap-1.5 mb-1">
-                        {b.tier === "gold" ? <Crown size={13} /> : b.tier === "platinum" ? <Star size={13} /> : <Medal size={13} />}
-                        <span className="text-[12px] font-medium text-[var(--text-primary)] truncate">{b.name}</span>
-                      </div>
-                      <p className="text-[10px] text-[var(--text-tertiary)] line-clamp-2">{b.description}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </section>
+          </div>
         </div>
 
       </div>
@@ -593,126 +455,21 @@ const Dashboard = () => {
   );
 };
 
-// ===========================================================================
-// Sub-components
-// ===========================================================================
-
-const SectionHeader = ({ icon: Icon, title }) => (
-  <div className="flex items-center gap-2 mb-3">
-    <Icon size={15} className="text-[var(--text-tertiary)]" />
-    <h2 className="text-[14px] font-semibold text-[var(--text-primary)]">{title}</h2>
-  </div>
-);
-
-const InlineStat = ({ icon: Icon, value, label, color }) => (
-  <div className="flex items-center gap-1.5">
-    <Icon size={15} className={color} />
-    <span className={`text-[15px] font-semibold ${color}`}>{value}</span>
-    <span className="text-[12px] text-[var(--text-tertiary)]">{label}</span>
-  </div>
-);
-
-const Divider = () => <div className="h-5 w-px bg-[var(--border-subtle)]" />;
-
-const MonthlyGoalRing = ({ progress, solved, goal }) => {
-  const radius = 40;
-  const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (progress / 100) * circumference;
-  return (
-    <div className="flex flex-col items-center">
-      <svg width="100" height="100" className="relative">
-        <circle cx="50" cy="50" r={radius} fill="none" stroke="var(--border-subtle)" strokeWidth="6" />
-        <circle
-          cx="50" cy="50" r={radius} fill="none" stroke="var(--accent)" strokeWidth="6"
-          strokeLinecap="round" className="ring-progress"
-          strokeDasharray={circumference} strokeDashoffset={offset}
-        />
-      </svg>
-      <div className="absolute flex flex-col items-center mt-[18px]">
-        <span className="text-lg font-bold text-[var(--text-primary)]">{solved}</span>
-        <span className="text-[10px] text-[var(--text-tertiary)]">/ {goal}</span>
-      </div>
-      <span className="text-[10px] text-[var(--text-tertiary)] mt-2 uppercase tracking-wider">Monthly Goal</span>
+// --- Sub-components ---
+const MetricTile = ({ icon: Icon, label, value, color, badge }) => (
+  <div className="surface p-3.5 rounded-xl border border-[var(--border-subtle)]">
+    <div className="flex items-center justify-between mb-1">
+      <span className="text-[11px] text-[var(--text-tertiary)] font-medium">{label}</span>
+      <Icon size={14} className={color} />
     </div>
-  );
-};
-
-const QuickAction = ({ icon: Icon, label, to, gradient, delay, badge }) => (
-  <motion.div
-    initial={{ opacity: 0, y: 12 }}
-    animate={{ opacity: 1, y: 0 }}
-    transition={{ duration: 0.3, delay }}
-    whileHover={{ y: -3 }}
-  >
-    <NavLink
-      to={to}
-      className={`block surface rounded-xl p-4 ${gradient} border transition-all hover:border-[var(--border-strong)] relative overflow-hidden`}
-    >
-      {badge > 0 && (
-        <span className="absolute top-2 right-2 text-[9px] font-mono bg-[var(--bg-elevated)] text-[var(--text-secondary)] px-1.5 py-0.5 rounded-full border border-[var(--border-default)]">
+    <div className="flex items-baseline justify-between mt-1">
+      <span className="text-xl font-bold text-[var(--text-primary)]">{value}</span>
+      {badge && (
+        <span className="text-[10px] font-medium text-[var(--text-secondary)] bg-[var(--bg-elevated)] px-1.5 py-0.5 rounded border border-[var(--border-subtle)]">
           {badge}
         </span>
       )}
-      <Icon size={20} className="text-[var(--text-primary)] mb-2" />
-      <div className="text-[12px] font-medium text-[var(--text-primary)]">{label}</div>
-    </NavLink>
-  </motion.div>
-);
-
-const DifficultyMiniBar = ({ label, count, total, color }) => {
-  const pct = total > 0 ? (count / total) * 100 : 0;
-  return (
-    <div className="flex items-center gap-2">
-      <span className="text-[10px] text-[var(--text-tertiary)] w-10">{label}</span>
-      <div className="flex-1 h-1.5 rounded-full bg-[var(--bg-elevated)] overflow-hidden">
-        <motion.div
-          initial={{ width: 0 }}
-          animate={{ width: `${pct}%` }}
-          transition={{ duration: 0.5 }}
-          className={`h-full ${color}`}
-        />
-      </div>
-      <span className="text-[10px] text-[var(--text-secondary)] w-6 text-right font-mono">{count}</span>
     </div>
-  );
-};
-
-const AcceptanceRing = ({ rate }) => {
-  const radius = 28;
-  const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (rate / 100) * circumference;
-  return (
-    <svg width="64" height="64" className="relative">
-      <circle cx="32" cy="32" r={radius} fill="none" stroke="var(--border-subtle)" strokeWidth="5" />
-      <circle
-        cx="32" cy="32" r={radius} fill="none" stroke="var(--purple)" strokeWidth="5"
-        strokeLinecap="round" className="ring-progress"
-        strokeDasharray={circumference} strokeDashoffset={offset}
-      />
-    </svg>
-  );
-};
-
-const AIPromptCard = ({ icon: Icon, title, desc }) => (
-  <div className="surface rounded-lg p-3.5 hover:border-[var(--border-default)] transition-colors cursor-pointer group">
-    <Icon size={16} className="text-[var(--purple)] mb-2" />
-    <div className="text-[12px] font-medium text-[var(--text-primary)] mb-1 group-hover:text-[var(--purple)] transition-colors">
-      {title}
-    </div>
-    <div className="text-[10px] text-[var(--text-tertiary)] leading-relaxed">{desc}</div>
-  </div>
-);
-
-const EmptyState = ({ icon: Icon, title, desc, cta, to }) => (
-  <div className="text-center py-8">
-    <Icon size={28} className="text-[var(--text-muted)] mx-auto mb-3" />
-    <p className="text-[13px] text-[var(--text-secondary)] mb-1">{title}</p>
-    <p className="text-[11px] text-[var(--text-tertiary)] mb-3">{desc}</p>
-    {cta && to && (
-      <NavLink to={to} className="btn-secondary !text-[12px] !py-1.5 inline-flex">
-        {cta}
-      </NavLink>
-    )}
   </div>
 );
 

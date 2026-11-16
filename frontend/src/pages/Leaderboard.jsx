@@ -85,36 +85,87 @@ const Leaderboard = () => {
 
       {/* Podium for top 3 (only on page 1) */}
       {pagination.page === 1 && entries.length >= 3 && (
-        <div className="grid grid-cols-3 gap-2 mb-6">
+        <div className="grid grid-cols-3 gap-3 mb-6 items-end">
           {[1, 0, 2].map((idx) => {
             const e = entries[idx];
             if (!e) return <div key={idx} />;
             const isFirst = e.rank === 1;
+            const isSecond = e.rank === 2;
             return (
               <motion.div
                 key={e._id}
-                initial={{ opacity: 0, y: 12 }}
+                initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, delay: idx * 0.1 }}
-                className={`surface rounded-xl p-4 text-center ${
-                  isFirst ? "border-yellow-600/40 bg-gradient-to-br from-yellow-950/20 to-[var(--bg-surface)] order-2 -mt-3"
-                  : e.rank === 2 ? "border-zinc-500/30 order-1"
-                  : "border-amber-700/30 bg-gradient-to-br from-amber-950/15 to-[var(--bg-surface)] order-3"
+                transition={{ duration: 0.4, delay: idx * 0.1 }}
+                className={`surface rounded-2xl p-4 text-center border transition-all ${
+                  isFirst
+                    ? "border-amber-500/40 bg-gradient-to-b from-amber-500/10 via-[var(--bg-surface)] to-[var(--bg-surface)] shadow-lg shadow-amber-500/5 order-2 -mt-4 py-6"
+                    : isSecond
+                    ? "border-zinc-400/30 bg-gradient-to-b from-zinc-400/5 to-[var(--bg-surface)] order-1"
+                    : "border-amber-700/30 bg-gradient-to-b from-amber-700/5 to-[var(--bg-surface)] order-3"
                 }`}
               >
-                <div className="flex justify-center mb-2">
-                  {isFirst ? <Crown size={26} className="text-yellow-400" />
-                    : e.rank === 2 ? <Medal size={22} className="text-zinc-300" />
-                    : <Medal size={22} className="text-amber-600" />}
+                <div className="flex justify-center mb-3">
+                  <div className="relative">
+                    {e.avatarUrl ? (
+                      <img
+                        src={e.avatarUrl}
+                        alt={e.firstName}
+                        referrerPolicy="no-referrer"
+                        className={`rounded-full object-cover border-2 ${
+                          isFirst ? "w-14 h-14 border-amber-400 shadow-md shadow-amber-500/20"
+                            : isSecond ? "w-12 h-12 border-zinc-300"
+                            : "w-12 h-12 border-amber-600"
+                        }`}
+                      />
+                    ) : (
+                      <div
+                        className={`rounded-full flex items-center justify-center font-bold text-white border-2 ${
+                          isFirst
+                            ? "w-14 h-14 bg-gradient-to-br from-amber-500 to-yellow-600 border-amber-400 text-lg"
+                            : isSecond
+                            ? "w-12 h-12 bg-gradient-to-br from-zinc-500 to-zinc-700 border-zinc-300 text-sm"
+                            : "w-12 h-12 bg-gradient-to-br from-amber-700 to-amber-900 border-amber-600 text-sm"
+                        }`}
+                      >
+                        {e.firstName?.[0]?.toUpperCase() || "?"}
+                      </div>
+                    )}
+                    <div className="absolute -top-2.5 -right-2">
+                      {isFirst ? (
+                        <div className="bg-amber-400 text-black p-1 rounded-full shadow">
+                          <Crown size={14} />
+                        </div>
+                      ) : isSecond ? (
+                        <div className="bg-zinc-300 text-black p-1 rounded-full shadow">
+                          <Medal size={12} />
+                        </div>
+                      ) : (
+                        <div className="bg-amber-700 text-white p-1 rounded-full shadow">
+                          <Medal size={12} />
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
-                <div className="text-[13px] font-medium text-[var(--text-primary)] truncate">
+
+                <NavLink
+                  to={`/profile/${e._id}`}
+                  className="text-xs font-semibold text-[var(--text-primary)] hover:text-[var(--accent)] transition-colors block truncate mb-1"
+                >
                   {e.firstName} {e.lastName || ""}
+                </NavLink>
+
+                <div className="flex items-baseline justify-center gap-1">
+                  <span className={`text-xl font-bold font-mono ${isFirst ? "text-amber-400" : "text-[var(--text-primary)]"}`}>
+                    {e.totalSolved}
+                  </span>
+                  <span className="text-[10px] text-[var(--text-tertiary)]">solved</span>
                 </div>
-                <div className="text-xl font-bold text-[var(--text-primary)] mt-1">{e.totalSolved}</div>
-                <div className="text-[10px] text-[var(--text-tertiary)]">solved</div>
+
                 {e.badgeCount > 0 && (
-                  <div className="text-[10px] text-[var(--warning)] mt-1 flex items-center justify-center gap-1">
-                    <Trophy size={9} /> {e.badgeCount} badges
+                  <div className="text-[10px] text-[var(--warning)] mt-1.5 flex items-center justify-center gap-1 font-medium">
+                    <Trophy size={10} /> {e.badgeCount} badges
                   </div>
                 )}
               </motion.div>

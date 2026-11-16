@@ -2,7 +2,6 @@ import { useEffect, useState, useMemo, useCallback } from "react";
 import { NavLink, useNavigate } from "react-router";
 import { useDispatch, useSelector } from "react-redux";
 import axiosClient from "../utils/axiosClient";
-import { logoutUser } from "../authSlice";
 import { motion } from "framer-motion";
 import {
   Search,
@@ -10,19 +9,20 @@ import {
   Circle,
   Bookmark,
   Heart,
-  Filter,
   Trophy,
   Target,
-  TrendingUp,
+  Sparkles,
+  ArrowRight,
+  Shuffle,
+  X,
+  Code2,
 } from "lucide-react";
 
 // ===========================================================================
-// XCODE Problems page — LeetCode-inspired with modern design.
-// Uses GET /problem/getAllProblem + GET /problem/problemSolvedByUser.
+// XCODE Problems Catalog — Modern, Fast, and Clean
 // ===========================================================================
 
 function Homepage() {
-  const dispatch = useDispatch();
   const navigate = useNavigate();
   const { user } = useSelector((state) => state.auth);
   const [problems, setProblems] = useState([]);
@@ -126,6 +126,12 @@ function Homepage() {
     hard: solvedProblems.filter((p) => p.difficulty === "hard").length,
   }), [problems, solvedProblems]);
 
+  const handlePickRandom = useCallback(() => {
+    if (problems.length === 0) return;
+    const random = problems[Math.floor(Math.random() * problems.length)];
+    if (random?._id) navigate(`/problem/${random._id}`);
+  }, [problems, navigate]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -134,136 +140,226 @@ function Homepage() {
     );
   }
 
+  const solvedPct = stats.total > 0 ? Math.round((stats.solved / stats.total) * 100) : 0;
+
   return (
-    <div className="max-w-7xl mx-auto px-4 lg:px-6 py-8">
-      {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-        className="mb-6"
-      >
-        <h1 className="text-2xl font-bold tracking-tight mb-1">Problems</h1>
-        <p className="text-[13px] text-[var(--text-tertiary)]">
-          Practice and master data structures & algorithms
-        </p>
-      </motion.div>
+    <div className="max-w-7xl mx-auto px-4 lg:px-6 py-6 lg:py-8 space-y-6">
 
-      {/* Stats row */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-        <MiniStat icon={Trophy} label="Solved" value={`${stats.solved}/${stats.total}`} color="text-[var(--accent)]" />
-        <MiniStat icon={Circle} label="Easy" value={stats.easy} color="text-[var(--success)]" />
-        <MiniStat icon={Circle} label="Medium" value={stats.medium} color="text-[var(--warning)]" />
-        <MiniStat icon={Circle} label="Hard" value={stats.hard} color="text-[var(--danger)]" />
-      </div>
-
-      {/* Filters bar */}
-      <div className="surface rounded-xl p-3 mb-4 flex flex-wrap items-center gap-2">
-        {/* Search */}
-        <div className="relative flex-1 min-w-[200px]">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
-          <input
-            type="text"
-            placeholder="Search problems..."
-            value={filters.search}
-            onChange={(e) => updateFilter("search", e.target.value)}
-            className="input-field !py-2 !pl-9 text-[13px]"
-          />
+      {/* ================================================================
+          HEADER & PROGRESS SUMMARY
+          ================================================================ */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight mb-1 flex items-center gap-2">
+            Problems Directory
+          </h1>
+          <p className="text-xs text-[var(--text-tertiary)]">
+            Explore curated data structures and algorithms challenges
+          </p>
         </div>
 
-        {/* Difficulty filter */}
-        <select
-          value={filters.difficulty}
-          onChange={(e) => updateFilter("difficulty", e.target.value)}
-          className="input-field !w-auto !py-2 text-[13px] cursor-pointer"
+        {/* Action: Pick Random */}
+        <button
+          onClick={handlePickRandom}
+          className="btn-secondary !text-xs !py-2 !px-3.5 flex items-center gap-2 self-start md:self-auto hover:border-[var(--accent)] transition-colors"
         >
-          <option value="all">All Difficulties</option>
-          <option value="easy">Easy</option>
-          <option value="medium">Medium</option>
-          <option value="hard">Hard</option>
-        </select>
-
-        {/* Tag filter */}
-        <select
-          value={filters.tag}
-          onChange={(e) => updateFilter("tag", e.target.value)}
-          className="input-field !w-auto !py-2 text-[13px] cursor-pointer"
-        >
-          <option value="all">All Tags</option>
-          <option value="array">Array</option>
-          <option value="linkedList">Linked List</option>
-          <option value="graph">Graph</option>
-          <option value="dp">DP</option>
-          <option value="math">Math</option>
-          <option value="string">String</option>
-          <option value="greedy">Greedy</option>
-          <option value="binarySearch">Binary Search</option>
-          <option value="tree">Tree</option>
-          <option value="map">Map</option>
-        </select>
-
-        {/* Status filter */}
-        <select
-          value={filters.status}
-          onChange={(e) => updateFilter("status", e.target.value)}
-          className="input-field !w-auto !py-2 text-[13px] cursor-pointer"
-        >
-          <option value="all">All Problems</option>
-          <option value="solved">Solved</option>
-          <option value="unsolved">Unsolved</option>
-          <option value="bookmarked">Bookmarked</option>
-          <option value="favorite">Favorites</option>
-        </select>
+          <Shuffle size={13} className="text-[var(--accent)]" /> Surprise Me (Random)
+        </button>
       </div>
 
-      {/* Problems table */}
-      <div className="surface rounded-xl overflow-hidden">
-        <table className="w-full">
+      {/* Progress banner card */}
+      <div className="surface p-4 rounded-xl border border-[var(--border-default)] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-lg bg-[var(--accent-soft)] border border-[var(--accent)]/30 flex items-center justify-center text-[var(--accent)] flex-shrink-0">
+            <Trophy size={18} />
+          </div>
+          <div>
+            <div className="flex items-baseline gap-2">
+              <span className="text-base font-bold text-[var(--text-primary)]">
+                {stats.solved} of {stats.total} Solved
+              </span>
+              <span className="text-xs text-[var(--text-tertiary)] font-mono">({solvedPct}%)</span>
+            </div>
+            <div className="text-[11px] text-[var(--text-muted)] mt-0.5">
+              {stats.easy} Easy · {stats.medium} Medium · {stats.hard} Hard
+            </div>
+          </div>
+        </div>
+
+        {/* Visual Progress Bar */}
+        <div className="w-full sm:w-64 space-y-1">
+          <div className="h-2 w-full rounded-full bg-[var(--bg-elevated)] overflow-hidden flex">
+            <div
+              className="bg-[var(--success)] h-full transition-all duration-500"
+              style={{ width: `${stats.total > 0 ? (stats.easy / stats.total) * 100 : 0}%` }}
+              title={`Easy: ${stats.easy}`}
+            />
+            <div
+              className="bg-[var(--warning)] h-full transition-all duration-500"
+              style={{ width: `${stats.total > 0 ? (stats.medium / stats.total) * 100 : 0}%` }}
+              title={`Medium: ${stats.medium}`}
+            />
+            <div
+              className="bg-[var(--danger)] h-full transition-all duration-500"
+              style={{ width: `${stats.total > 0 ? (stats.hard / stats.total) * 100 : 0}%` }}
+              title={`Hard: ${stats.hard}`}
+            />
+          </div>
+          <div className="flex justify-between text-[10px] text-[var(--text-muted)]">
+            <span>Overall completion</span>
+            <span className="font-mono">{solvedPct}%</span>
+          </div>
+        </div>
+      </div>
+
+      {/* ================================================================
+          SEARCH & INTERACTIVE FILTER PILLS
+          ================================================================ */}
+      <div className="space-y-3">
+        {/* Search Bar + Tag Dropdown */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+          {/* Search */}
+          <div className="relative flex-1">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+            <input
+              type="text"
+              placeholder="Search by problem title..."
+              value={filters.search}
+              onChange={(e) => updateFilter("search", e.target.value)}
+              className="input-field !py-2.5 !pl-9 !pr-8 text-xs w-full"
+            />
+            {filters.search && (
+              <button
+                onClick={() => updateFilter("search", "")}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+              >
+                <X size={13} />
+              </button>
+            )}
+          </div>
+
+          {/* Tag Dropdown */}
+          <select
+            value={filters.tag}
+            onChange={(e) => updateFilter("tag", e.target.value)}
+            className="input-field !w-full sm:!w-44 !py-2.5 text-xs cursor-pointer"
+          >
+            <option value="all">All Topics</option>
+            <option value="array">Array</option>
+            <option value="linkedList">Linked List</option>
+            <option value="graph">Graph</option>
+            <option value="dp">Dynamic Prog</option>
+            <option value="math">Math</option>
+            <option value="string">String</option>
+            <option value="greedy">Greedy</option>
+            <option value="binarySearch">Binary Search</option>
+            <option value="tree">Tree</option>
+            <option value="map">Map</option>
+          </select>
+        </div>
+
+        {/* Filter Pills Row */}
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+          {/* Difficulty Chips */}
+          <div className="flex flex-wrap items-center gap-1.5 text-xs">
+            <span className="text-[11px] text-[var(--text-tertiary)] mr-1">Difficulty:</span>
+            {[
+              { id: "all", label: "All" },
+              { id: "easy", label: "Easy", color: "text-[var(--success)]" },
+              { id: "medium", label: "Medium", color: "text-[var(--warning)]" },
+              { id: "hard", label: "Hard", color: "text-[var(--danger)]" },
+            ].map((d) => (
+              <button
+                key={d.id}
+                onClick={() => updateFilter("difficulty", d.id)}
+                className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
+                  filters.difficulty === d.id
+                    ? "bg-[var(--bg-elevated)] border border-[var(--border-strong)] text-[var(--text-primary)] shadow-sm"
+                    : "text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-surface)]"
+                }`}
+              >
+                <span className={d.color}>{d.label}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Status Chips */}
+          <div className="flex flex-wrap items-center gap-1.5 text-xs">
+            <span className="text-[11px] text-[var(--text-tertiary)] mr-1">Status:</span>
+            {[
+              { id: "all", label: "All" },
+              { id: "solved", label: "Solved", icon: CheckCircle2 },
+              { id: "unsolved", label: "Unsolved" },
+              { id: "bookmarked", label: "Bookmarked", icon: Bookmark },
+              { id: "favorite", label: "Favorites", icon: Heart },
+            ].map((s) => {
+              const Icon = s.icon;
+              return (
+                <button
+                  key={s.id}
+                  onClick={() => updateFilter("status", s.id)}
+                  className={`px-2.5 py-1 rounded-md text-xs font-medium flex items-center gap-1 transition-all ${
+                    filters.status === s.id
+                      ? "bg-[var(--bg-elevated)] border border-[var(--border-strong)] text-[var(--accent)] shadow-sm"
+                      : "text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-surface)]"
+                  }`}
+                >
+                  {Icon && <Icon size={11} />}
+                  <span>{s.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* ================================================================
+          PROBLEMS TABLE
+          ================================================================ */}
+      <div className="surface rounded-xl border border-[var(--border-default)] overflow-hidden">
+        <table className="w-full text-left">
           <thead>
-            <tr className="border-b border-[var(--border-subtle)]">
-              <th className="text-left text-[11px] uppercase tracking-wider text-[var(--text-tertiary)] font-medium px-4 py-3 w-12">Status</th>
-              <th className="text-left text-[11px] uppercase tracking-wider text-[var(--text-tertiary)] font-medium px-4 py-3">Title</th>
-              <th className="text-left text-[11px] uppercase tracking-wider text-[var(--text-tertiary)] font-medium px-4 py-3 hidden sm:table-cell w-28">Difficulty</th>
-              <th className="text-left text-[11px] uppercase tracking-wider text-[var(--text-tertiary)] font-medium px-4 py-3 hidden md:table-cell w-28">Tags</th>
-              <th className="text-right text-[11px] uppercase tracking-wider text-[var(--text-tertiary)] font-medium px-4 py-3 w-12"></th>
+            <tr className="border-b border-[var(--border-subtle)] bg-[var(--bg-elevated)]/50">
+              <th className="text-[11px] uppercase tracking-wider text-[var(--text-tertiary)] font-medium px-4 py-3 w-12 text-center">Status</th>
+              <th className="text-[11px] uppercase tracking-wider text-[var(--text-tertiary)] font-medium px-4 py-3">Title</th>
+              <th className="text-[11px] uppercase tracking-wider text-[var(--text-tertiary)] font-medium px-4 py-3 hidden sm:table-cell w-28">Difficulty</th>
+              <th className="text-[11px] uppercase tracking-wider text-[var(--text-tertiary)] font-medium px-4 py-3 hidden md:table-cell w-36">Tags</th>
+              <th className="text-[11px] uppercase tracking-wider text-[var(--text-tertiary)] font-medium px-4 py-3 w-14 text-right">Action</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-[var(--border-subtle)]">
             {filteredProblems.length === 0 ? (
               <tr>
-                <td colSpan={5} className="text-center py-12 text-[13px] text-[var(--text-tertiary)]">
-                  No problems found matching your filters.
+                <td colSpan={5} className="text-center py-14 text-xs text-[var(--text-tertiary)]">
+                  <Code2 size={24} className="text-[var(--text-muted)] mx-auto mb-2" />
+                  No problems matched your current filters.
                 </td>
               </tr>
             ) : (
-              filteredProblems.map((problem, index) => {
+              filteredProblems.map((problem) => {
                 const isSolved = solvedIds.has(problem._id);
                 return (
-                  <motion.tr
+                  <tr
                     key={problem._id}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ duration: 0.2, delay: Math.min(index * 0.01, 0.3) }}
-                    className="border-b border-[var(--border-subtle)] last:border-0 hover:bg-[var(--bg-surface-hover)] transition-colors group cursor-pointer"
                     onClick={() => navigate(`/problem/${problem._id}`)}
+                    className="hover:bg-[var(--bg-surface-hover)] transition-colors group cursor-pointer"
                   >
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3.5 text-center">
                       {isSolved ? (
-                        <CheckCircle2 size={16} className="text-[var(--success)]" />
+                        <CheckCircle2 size={16} className="text-[var(--success)] inline-block" />
                       ) : (
-                        <Circle size={16} className="text-[var(--text-muted)]" />
+                        <Circle size={15} className="text-[var(--border-strong)] inline-block group-hover:text-[var(--text-muted)] transition-colors" />
                       )}
                     </td>
-                    <td className="px-4 py-3">
-                      <NavLink
-                        to={`/problem/${problem._id}`}
-                        className="text-[13px] text-[var(--text-primary)] group-hover:text-[var(--accent)] transition-colors"
-                      >
-                        {problem.title}
-                      </NavLink>
+                    <td className="px-4 py-3.5">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-medium text-[var(--text-primary)] group-hover:text-[var(--accent)] transition-colors">
+                          {problem.title}
+                        </span>
+                      </div>
                     </td>
-                    <td className="px-4 py-3 hidden sm:table-cell">
-                      <span className={`pill ${
+                    <td className="px-4 py-3.5 hidden sm:table-cell">
+                      <span className={`pill text-[10px] !py-0.5 ${
                         problem.difficulty === "easy" ? "badge-difficulty-easy"
                           : problem.difficulty === "medium" ? "badge-difficulty-medium"
                           : "badge-difficulty-hard"
@@ -271,15 +367,15 @@ function Homepage() {
                         {problem.difficulty}
                       </span>
                     </td>
-                    <td className="px-4 py-3 hidden md:table-cell">
-                      <span className="pill">{problem.tags}</span>
+                    <td className="px-4 py-3.5 hidden md:table-cell">
+                      <span className="pill text-[10px] !py-0.5">{problem.tags}</span>
                     </td>
-                    <td className="px-4 py-3 text-right">
-                      <span className="text-[var(--text-muted)] group-hover:text-[var(--accent)] transition-colors text-[13px]">
+                    <td className="px-4 py-3.5 text-right">
+                      <span className="text-[var(--text-muted)] group-hover:text-[var(--accent)] group-hover:translate-x-0.5 inline-block transition-all text-xs">
                         →
                       </span>
                     </td>
-                  </motion.tr>
+                  </tr>
                 );
               })
             )}
@@ -288,21 +384,11 @@ function Homepage() {
       </div>
 
       {/* Footer count */}
-      <div className="mt-4 text-[12px] text-[var(--text-tertiary)] text-center">
+      <div className="text-[11px] text-[var(--text-tertiary)] text-center pt-1">
         Showing {filteredProblems.length} of {problems.length} problems
       </div>
     </div>
   );
 }
-
-const MiniStat = ({ icon: Icon, label, value, color }) => (
-  <div className="surface rounded-lg p-3 flex items-center gap-2.5">
-    <Icon size={15} className={color} />
-    <div>
-      <div className={`text-[15px] font-semibold ${color}`}>{value}</div>
-      <div className="text-[10px] text-[var(--text-tertiary)]">{label}</div>
-    </div>
-  </div>
-);
 
 export default Homepage;
