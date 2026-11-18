@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import Editor from '@monaco-editor/react';
-import { useParams, useNavigate, NavLink } from 'react-router';
+import { useParams, useNavigate, useSearchParams, NavLink } from 'react-router';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import {
@@ -101,7 +101,10 @@ const isModifier = (e) => e.metaKey || e.ctrlKey;
 
 const ProblemPage = () => {
   const { problemId } = useParams();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const contestId = searchParams.get('contestId');
+  const isVirtualContest = searchParams.get('virtual') === 'true';
 
   const [problem, setProblem] = useState(null);
   const [selectedLanguage, setSelectedLanguage] = useState('javascript');
@@ -509,13 +512,23 @@ const ProblemPage = () => {
     return (
       <div className="flex items-center gap-3 px-4 py-2 border-b border-zinc-800 bg-[#131316]">
         <button
-          onClick={() => navigate('/')}
-          className="p-1.5 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200"
-          aria-label="Back to problems"
-          title="Back to problems"
+          onClick={() =>
+            contestId
+              ? navigate(`/contests/${contestId}${isVirtualContest ? '?virtual=true' : ''}`)
+              : navigate('/problems')
+          }
+          className="p-1.5 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 flex items-center gap-1 text-xs"
+          aria-label={contestId ? 'Back to contest arena' : 'Back to problems'}
+          title={contestId ? 'Back to contest arena' : 'Back to problems'}
         >
           <ChevronLeft size={18} />
+          {contestId && <span className="hidden sm:inline font-medium text-amber-300">Arena</span>}
         </button>
+        {contestId && (
+          <span className="px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/35 text-amber-300 text-[10px] font-semibold uppercase tracking-wider flex-shrink-0">
+            {isVirtualContest ? 'Virtual Contest' : 'Live Contest'}
+          </span>
+        )}
         <h1 className="text-sm font-medium text-zinc-100 truncate flex-1">
           {problem.title}
         </h1>
@@ -551,7 +564,7 @@ const ProblemPage = () => {
         )}
       </div>
     );
-  }, [problem, navigate, getDifficultyColor, lastSaved, isBookmarked, isFavorite, handleToggleBookmark, handleToggleFavorite]);
+  }, [problem, navigate, contestId, isVirtualContest, getDifficultyColor, lastSaved, isBookmarked, isFavorite, handleToggleBookmark, handleToggleFavorite]);
 
   // ------------------------------------------------------------------
   // Left tab strip

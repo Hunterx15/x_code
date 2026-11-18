@@ -78,7 +78,7 @@ const Dashboard = () => {
   const totalSubmissions90d = activityGraph.reduce((s, d) => s + d.submissions, 0);
 
   return (
-    <div className="min-h-[calc(100vh-3.5rem)] bg-[var(--bg-base)]">
+    <div className="min-h-[calc(100vh-3.5rem)] bg-grid-subtle">
       <div className="max-w-7xl mx-auto px-4 lg:px-6 py-6 lg:py-8 space-y-6">
 
         {/* ================================================================
@@ -194,10 +194,10 @@ const Dashboard = () => {
               </div>
             </div>
             <NavLink
-              to="/contests"
+              to={`/contests/${upcomingContests[0]._id || upcomingContests[0].id}`}
               className="btn-secondary !text-xs !py-1.5 !px-3 self-start sm:self-auto flex items-center gap-1.5 border-amber-500/40 text-amber-300 hover:bg-amber-500/10"
             >
-              View Contests <ArrowRight size={12} />
+              Enter Arena <ArrowRight size={12} />
             </NavLink>
           </div>
         )}

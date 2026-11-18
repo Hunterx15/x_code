@@ -26,7 +26,7 @@ const contestSchema = new Schema(
     },
     type: {
       type: String,
-      enum: ["weekly", "biweekly", "championship"],
+      enum: ["weekly", "biweekly", "championship", "community"],
       default: "weekly",
     },
     badge: {
@@ -41,6 +41,20 @@ const contestSchema = new Schema(
       type: String,
       default: "1 Easy · 2 Medium · 1 Hard",
     },
+    // Real playable problem set for this contest (with LeetCode point weights)
+    problems: [
+      {
+        problemId: {
+          type: Schema.Types.ObjectId,
+          ref: "problem",
+          required: true,
+        },
+        points: {
+          type: Number,
+          default: 4,
+        },
+      },
+    ],
     // Atomic counter kept in sync with the ContestRegistration join collection.
     participantCount: {
       type: Number,

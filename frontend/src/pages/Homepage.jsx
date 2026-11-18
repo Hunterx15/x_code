@@ -143,7 +143,8 @@ function Homepage() {
   const solvedPct = stats.total > 0 ? Math.round((stats.solved / stats.total) * 100) : 0;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 lg:px-6 py-6 lg:py-8 space-y-6">
+    <div className="min-h-[calc(100vh-3.5rem)] bg-grid-subtle">
+      <div className="max-w-7xl mx-auto px-4 lg:px-6 py-6 lg:py-8 space-y-6">
 
       {/* ================================================================
           HEADER & PROGRESS SUMMARY
@@ -364,7 +365,7 @@ function Homepage() {
                 </td>
               </tr>
             ) : (
-              filteredProblems.map((problem) => {
+              filteredProblems.map((problem, idx) => {
                 const isSolved = solvedIds.has(problem._id);
                 return (
                   <tr
@@ -380,7 +381,10 @@ function Homepage() {
                       )}
                     </td>
                     <td className="px-4 py-3.5">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2.5">
+                        <span className="text-[11px] font-mono text-[var(--text-muted)] w-6">
+                          {String(idx + 1).padStart(2, "0")}
+                        </span>
                         <span className="text-xs font-medium text-[var(--text-primary)] group-hover:text-[var(--accent)] transition-colors">
                           {problem.title}
                         </span>
@@ -414,6 +418,7 @@ function Homepage() {
       {/* Footer count */}
       <div className="text-[11px] text-[var(--text-tertiary)] text-center pt-1">
         Showing {filteredProblems.length} of {problems.length} problems
+      </div>
       </div>
     </div>
   );

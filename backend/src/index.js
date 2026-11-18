@@ -41,6 +41,7 @@ const videoRouter = require("./routes/videoCreator");
 const discussionRouter = require("./routes/discussion");
 const contestRouter = require("./routes/contest");
 const { getQueueStats } = require("./utils/submissionQueue");
+const { seedCatalog } = require("./utils/seedProblems");
 const cors = require("cors");
 const helmet = require("helmet");
 const {
@@ -127,6 +128,16 @@ const initializeConnection = async () => {
     // MongoDB is REQUIRED — without it, no endpoint can function.
     await main();
     console.log("MongoDB: connected");
+
+    // Non-blocking idempotent catalog seed so the 60 LeetCode problems are
+    // available immediately after deploy without manual CLI intervention.
+    seedCatalog()
+      .then((s) => {
+        if (s.inserted > 0) {
+          console.log(`Catalog seed: inserted ${s.inserted} problems (${s.totalInDb} total)`);
+        }
+      })
+      .catch((err) => console.warn("Catalog seed skipped:", err.message));
 
     // Redis is OPTIONAL — we connect in the background and let the auth
     // middleware fail open if it's unavailable. Previously a Redis outage
