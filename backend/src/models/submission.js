@@ -45,13 +45,32 @@ const submissionSchema = new Schema({
   testCasesTotal: {  
     type: Number,
     default: 0
+  },
+  runtimePercentile: {
+    type: Number,
+    default: null
+  },
+  memoryPercentile: {
+    type: Number,
+    default: null
+  },
+  newlyAwardedBadges: {
+    type: [Schema.Types.Mixed],
+    default: []
   }
 }, { 
   timestamps: true
 });
 
 
-submissionSchema.index({userId:1 , problemId:1});
+submissionSchema.index({ userId: 1, problemId: 1 });
+// Global submission history & 90-day activity graph
+submissionSchema.index({ userId: 1, createdAt: -1 });
+// Streak calculation & accepted submission aggregations
+submissionSchema.index({ userId: 1, status: 1, createdAt: -1 });
+// Real runtime & memory percentile calculations per problem + language
+submissionSchema.index({ problemId: 1, language: 1, status: 1, runtime: 1 });
+submissionSchema.index({ problemId: 1, language: 1, status: 1, memory: 1 });
 
 
 const Submission = mongoose.model('submission',submissionSchema);

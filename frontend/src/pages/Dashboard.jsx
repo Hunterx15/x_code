@@ -157,9 +157,15 @@ const Dashboard = () => {
             <MetricTile
               icon={Target}
               label="Global Standing"
-              value={`#${Math.max(1, 1000 - stats.totalSolved * 10)}`}
+              value={stats.rank ? `#${stats.rank}` : "—"}
               color="text-[var(--success)]"
-              badge="Top 15%"
+              badge={
+                stats.topPercent
+                  ? `Top ${stats.topPercent}%`
+                  : stats.totalUsers
+                  ? `of ${stats.totalUsers}`
+                  : null
+              }
             />
           </div>
         </motion.section>

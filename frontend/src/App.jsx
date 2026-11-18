@@ -1,7 +1,8 @@
 import { Routes, Route, Navigate, useNavigate } from "react-router";
-import { lazy, Suspense, useEffect, Component } from "react";
+import { lazy, Suspense, useEffect, useState, useRef, Component } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { checkAuth } from "./authSlice";
+import axiosClient from "./utils/axiosClient";
 import AppLayout from "./components/AppLayout";
 
 // Error Boundary — catches render errors and lazy-chunk load failures.
@@ -63,31 +64,57 @@ const RouteLoader = () => (
   </div>
 );
 
-// OAuth landing page: backend redirects here after setting the JWT cookie.
+// OAuth landing page: exchanges single-use opaque code via POST (no JWT in URL).
 function GoogleAuthSuccess() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { isAuthenticated, loading } = useSelector((state) => state.auth);
+  const [exchanging, setExchanging] = useState(true);
+  const exchangedRef = useRef(false);
 
   useEffect(() => {
-    // If backend passed token in URL (fallback when cross-site cookies are blocked by browser)
-    const params = new URLSearchParams(window.location.search);
-    const token = params.get("token");
-    if (token) {
-      localStorage.setItem("token", token);
-    }
-    dispatch(checkAuth());
+    if (exchangedRef.current) return;
+    exchangedRef.current = true;
+
+    const completeAuth = async () => {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const code = params.get("code");
+        const legacyToken = params.get("token");
+
+        // Strip sensitive query params from browser history immediately
+        if (code || legacyToken) {
+          window.history.replaceState({}, "", "/auth/google/success");
+        }
+
+        if (code) {
+          const { data } = await axiosClient.post("/user/auth/google/exchange", { code });
+          if (data?.token) {
+            localStorage.setItem("token", data.token);
+          }
+        } else if (legacyToken) {
+          localStorage.setItem("token", legacyToken);
+        }
+      } catch (err) {
+        console.error("OAuth code exchange error:", err);
+      } finally {
+        await dispatch(checkAuth());
+        setExchanging(false);
+      }
+    };
+
+    completeAuth();
   }, [dispatch]);
 
   useEffect(() => {
-    if (!loading) {
+    if (!exchanging && !loading) {
       if (isAuthenticated) {
         navigate("/dashboard", { replace: true });
       } else {
         navigate("/login?google_error=auth_failed", { replace: true });
       }
     }
-  }, [loading, isAuthenticated, navigate]);
+  }, [exchanging, loading, isAuthenticated, navigate]);
 
   return <RouteLoader />;
 }

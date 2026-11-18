@@ -48,6 +48,7 @@ const Login = () => {
     if (err) {
       const messages = {
         missing_code: "Google sign-in did not return an authorization code.",
+        invalid_state: "Security check failed (expired or invalid OAuth state). Please try signing in again.",
         no_token: "Failed to obtain an access token from Google.",
         incomplete_profile: "Google account does not provide an email address or profile.",
         callback_failed: "Failed to complete Google authentication. Please try again.",

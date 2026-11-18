@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 const Contest = require("../models/contest");
+const ContestRegistration = require("../models/contestRegistration");
 
 // Ensure default upcoming contests exist so the platform is never empty
 const ensureDefaultContests = async () => {
@@ -15,7 +16,8 @@ const ensureDefaultContests = async () => {
       daysOffset: 2,
       badge: "Rated",
       difficulty: "1 Easy · 2 Medium · 1 Hard",
-      description: "Compete against thousands of programmers in 4 algorithmic challenges.",
+      description:
+        "Compete against thousands of programmers in 4 algorithmic challenges.",
     },
     {
       title: "Biweekly Contest 148",
@@ -42,7 +44,8 @@ const ensureDefaultContests = async () => {
       daysOffset: 14,
       badge: "Grand Prize",
       difficulty: "1 Medium · 2 Hard · 1 Expert",
-      description: "Annual Spring Championship with rating multipliers and badges.",
+      description:
+        "Annual Spring Championship with rating multipliers and badges.",
     },
   ];
 
@@ -51,7 +54,9 @@ const ensureDefaultContests = async () => {
     startTime.setUTCDate(startTime.getUTCDate() + item.daysOffset);
     startTime.setUTCHours(10, 0, 0, 0);
 
-    const endTime = new Date(startTime.getTime() + item.durationMinutes * 60 * 1000);
+    const endTime = new Date(
+      startTime.getTime() + item.durationMinutes * 60 * 1000
+    );
 
     return {
       title: item.title,
@@ -63,7 +68,7 @@ const ensureDefaultContests = async () => {
       difficulty: item.difficulty,
       description: item.description,
       status: "upcoming",
-      participants: [],
+      participantCount: 0,
     };
   });
 
@@ -78,31 +83,37 @@ const getAllContests = async (req, res) => {
   try {
     await ensureDefaultContests();
 
-    const userId = req.result?._id?.toString();
-    const contests = await Contest.find({}).sort({ startTime: 1 });
+    const userId = req.result?._id;
+    const contests = await Contest.find({}).sort({ startTime: 1 }).lean();
 
-    const formatted = contests.map((c) => {
-      const isRegistered = userId
-        ? c.participants.some((p) => p.toString() === userId)
-        : false;
+    let registeredSet = new Set();
+    if (userId && contests.length > 0) {
+      const contestIds = contests.map((c) => c._id);
+      const regs = await ContestRegistration.find({
+        userId,
+        contestId: { $in: contestIds },
+      })
+        .select("contestId")
+        .lean();
+      registeredSet = new Set(regs.map((r) => r.contestId.toString()));
+    }
 
-      return {
-        _id: c._id,
-        id: c._id.toString(),
-        title: c.title,
-        description: c.description,
-        startTime: c.startTime,
-        endTime: c.endTime,
-        durationMinutes: c.durationMinutes,
-        type: c.type,
-        badge: c.badge,
-        difficulty: c.difficulty,
-        problemCount: c.problemCount || 4,
-        status: c.status,
-        registeredCount: c.participants ? c.participants.length : 0,
-        isRegistered,
-      };
-    });
+    const formatted = contests.map((c) => ({
+      _id: c._id,
+      id: c._id.toString(),
+      title: c.title,
+      description: c.description,
+      startTime: c.startTime,
+      endTime: c.endTime,
+      durationMinutes: c.durationMinutes,
+      type: c.type,
+      badge: c.badge,
+      difficulty: c.difficulty,
+      problemCount: c.problemCount || 4,
+      status: c.status,
+      registeredCount: c.participantCount || 0,
+      isRegistered: registeredSet.has(c._id.toString()),
+    }));
 
     res.status(200).json({ contests: formatted });
   } catch (err) {
@@ -122,15 +133,17 @@ const getContestById = async (req, res) => {
       return res.status(400).json({ error: "Invalid contest ID" });
     }
 
-    const contest = await Contest.findById(contestId);
+    const userId = req.result?._id;
+    const [contest, existingReg] = await Promise.all([
+      Contest.findById(contestId).lean(),
+      userId
+        ? ContestRegistration.exists({ contestId, userId })
+        : Promise.resolve(null),
+    ]);
+
     if (!contest) {
       return res.status(404).json({ error: "Contest not found" });
     }
-
-    const userId = req.result?._id?.toString();
-    const isRegistered = userId
-      ? contest.participants.some((p) => p.toString() === userId)
-      : false;
 
     res.status(200).json({
       contest: {
@@ -146,8 +159,8 @@ const getContestById = async (req, res) => {
         difficulty: contest.difficulty,
         problemCount: contest.problemCount || 4,
         status: contest.status,
-        registeredCount: contest.participants ? contest.participants.length : 0,
-        isRegistered,
+        registeredCount: contest.participantCount || 0,
+        isRegistered: Boolean(existingReg),
       },
     });
   } catch (err) {
@@ -158,7 +171,7 @@ const getContestById = async (req, res) => {
 
 // ---------------------------------------------------------------------------
 // POST /contest/register/:contestId
-// Registers the authenticated user for the contest
+// Idempotently registers the authenticated user via ContestRegistration
 // ---------------------------------------------------------------------------
 const registerForContest = async (req, res) => {
   try {
@@ -169,20 +182,34 @@ const registerForContest = async (req, res) => {
       return res.status(400).json({ error: "Invalid contest ID" });
     }
 
-    const contest = await Contest.findByIdAndUpdate(
-      contestId,
-      { $addToSet: { participants: userId } },
-      { new: true }
-    );
-
-    if (!contest) {
+    const contestExists = await Contest.exists({ _id: contestId });
+    if (!contestExists) {
       return res.status(404).json({ error: "Contest not found" });
+    }
+
+    let updatedContest = null;
+    try {
+      await ContestRegistration.create({ contestId, userId });
+      updatedContest = await Contest.findByIdAndUpdate(
+        contestId,
+        { $inc: { participantCount: 1 } },
+        { new: true }
+      ).select("participantCount");
+    } catch (err) {
+      if (err?.code === 11000) {
+        // Already registered — idempotent success without double-incrementing
+        updatedContest = await Contest.findById(contestId).select(
+          "participantCount"
+        );
+      } else {
+        throw err;
+      }
     }
 
     res.status(200).json({
       message: "Successfully registered for contest",
       isRegistered: true,
-      registeredCount: contest.participants.length,
+      registeredCount: updatedContest?.participantCount || 0,
     });
   } catch (err) {
     console.error("registerForContest error:", err);
@@ -192,7 +219,7 @@ const registerForContest = async (req, res) => {
 
 // ---------------------------------------------------------------------------
 // POST /contest/unregister/:contestId
-// Unregisters the authenticated user
+// Atomically removes registration and decrements participantCount
 // ---------------------------------------------------------------------------
 const unregisterFromContest = async (req, res) => {
   try {
@@ -203,20 +230,34 @@ const unregisterFromContest = async (req, res) => {
       return res.status(400).json({ error: "Invalid contest ID" });
     }
 
-    const contest = await Contest.findByIdAndUpdate(
-      contestId,
-      { $pull: { participants: userId } },
-      { new: true }
-    );
-
-    if (!contest) {
+    const contestExists = await Contest.exists({ _id: contestId });
+    if (!contestExists) {
       return res.status(404).json({ error: "Contest not found" });
+    }
+
+    const deleted = await ContestRegistration.findOneAndDelete({
+      contestId,
+      userId,
+    });
+
+    let updatedContest;
+    if (deleted) {
+      updatedContest = await Contest.findOneAndUpdate(
+        { _id: contestId, participantCount: { $gt: 0 } },
+        { $inc: { participantCount: -1 } },
+        { new: true }
+      ).select("participantCount");
+    }
+    if (!updatedContest) {
+      updatedContest = await Contest.findById(contestId).select(
+        "participantCount"
+      );
     }
 
     res.status(200).json({
       message: "Successfully unregistered from contest",
       isRegistered: false,
-      registeredCount: contest.participants.length,
+      registeredCount: updatedContest?.participantCount || 0,
     });
   } catch (err) {
     console.error("unregisterFromContest error:", err);
@@ -229,10 +270,20 @@ const unregisterFromContest = async (req, res) => {
 // ---------------------------------------------------------------------------
 const createContest = async (req, res) => {
   try {
-    const { title, description, startTime, durationMinutes, type, badge, difficulty } = req.body;
+    const {
+      title,
+      description,
+      startTime,
+      durationMinutes,
+      type,
+      badge,
+      difficulty,
+    } = req.body;
 
     if (!title || !startTime) {
-      return res.status(400).json({ error: "Title and startTime are required" });
+      return res
+        .status(400)
+        .json({ error: "Title and startTime are required" });
     }
 
     const duration = parseInt(durationMinutes, 10) || 90;
@@ -249,7 +300,7 @@ const createContest = async (req, res) => {
       badge: badge || "Rated",
       difficulty: difficulty || "1 Easy · 2 Medium · 1 Hard",
       createdBy: req.result._id,
-      participants: [],
+      participantCount: 0,
     });
 
     res.status(201).json({
@@ -263,6 +314,7 @@ const createContest = async (req, res) => {
 };
 
 module.exports = {
+  ensureDefaultContests,
   getAllContests,
   getContestById,
   registerForContest,

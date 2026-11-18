@@ -48,12 +48,14 @@ function ChatAi({ problem }) {
     setSending(true);
 
     try {
+      const cleanHistory = payloadMessages.slice(-16).map(({ role, parts }) => ({
+        role,
+        parts,
+      }));
+
       const response = await axiosClient.post("/ai/chat", {
-        messages: payloadMessages.slice(-20),
-        title: problem.title,
-        description: problem.description,
-        testCases: problem.visibleTestCases,
-        startCode: problem.startCode,
+        problemId: problem._id,
+        messages: cleanHistory,
       });
 
       setMessages((prev) => [
@@ -70,18 +72,17 @@ function ChatAi({ problem }) {
       ]);
     } catch (error) {
       console.error("API Error:", error);
+      const isRateLimited = error?.response?.status === 429;
+      const errText = isRateLimited
+        ? "⏳ Rate limit reached. Please wait a moment before sending another message."
+        : "❌ AI service unavailable.\n\nPlease try again in a few moments.";
 
       setMessages((prev) => [
         ...prev,
         {
           id: crypto.randomUUID(),
           role: "model",
-          parts: [
-            {
-              text:
-                "❌ AI service unavailable.\n\nPlease try again in a few moments.",
-            },
-          ],
+          parts: [{ text: errText }],
         },
       ]);
     } finally {

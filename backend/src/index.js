@@ -40,6 +40,7 @@ const aiRouter = require("./routes/aiChatting");
 const videoRouter = require("./routes/videoCreator");
 const discussionRouter = require("./routes/discussion");
 const contestRouter = require("./routes/contest");
+const { getQueueStats } = require("./utils/submissionQueue");
 const cors = require("cors");
 const helmet = require("helmet");
 const {
@@ -110,6 +111,7 @@ app.get("/health", (_req, res) => {
     service: "xcode",
     timestamp: new Date().toISOString(),
     uptimeSec: Math.floor(process.uptime()),
+    submissionQueue: getQueueStats(),
   });
 });
 

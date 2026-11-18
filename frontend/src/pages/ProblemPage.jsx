@@ -280,33 +280,99 @@ const ProblemPage = () => {
   }, [code, problemId, selectedLanguage]);
 
   // ------------------------------------------------------------------
-  // Submit code — identical API contract to the original.
-  // POST /submission/submit/:id  { code, language }
-  // After a successful ACCEPTED submission, clear the autosave draft so
-  // the user gets the fresh template next time (LeetCode behavior).
+  // Submit code — async 202 Accepted + status polling pipeline.
+  // POST /submission/submit/:id  -> 202 { submissionId, status: "pending" }
+  // GET  /submission/status/:id  -> poll until status !== "pending"
   // ------------------------------------------------------------------
+  useEffect(() => {
+    return () => {
+      runAbortRef.current?.abort();
+    };
+  }, []);
+
   const handleSubmitCode = useCallback(async () => {
+    runAbortRef.current?.abort();
+    const controller = new AbortController();
+    runAbortRef.current = controller;
+
     setLoading(true);
-    setSubmitResult(null);
+    setActiveRightTab('result');
+    setSubmitResult({ status: 'pending' });
+
     try {
-      const response = await axiosClient.post(`/submission/submit/${problemId}`, {
-        code,
-        language: selectedLanguage,
-      });
-      setSubmitResult(response.data);
-      setActiveRightTab('result');
-      if (response.data?.accepted) {
+      const response = await axiosClient.post(
+        `/submission/submit/${problemId}`,
+        { code, language: selectedLanguage },
+        { signal: controller.signal }
+      );
+
+      let finalResult = response.data;
+
+      // Async path: poll GET /submission/status/:submissionId until judge finishes
+      if (finalResult?.status === 'pending' && finalResult?.submissionId) {
+        const submissionId = finalResult.submissionId;
+        const deadline = Date.now() + 65_000;
+
+        while (Date.now() < deadline) {
+          if (controller.signal.aborted) return;
+          await new Promise((resolve) => setTimeout(resolve, 800));
+          if (controller.signal.aborted) return;
+
+          const statusRes = await axiosClient.get(
+            `/submission/status/${submissionId}`,
+            { signal: controller.signal }
+          );
+          if (statusRes.data?.status !== 'pending') {
+            finalResult = statusRes.data;
+            break;
+          }
+        }
+
+        if (finalResult?.status === 'pending') {
+          finalResult = {
+            accepted: false,
+            status: 'error',
+            error: 'Judging timed out. Check Submissions tab shortly.',
+            passedTestCases: 0,
+            totalTestCases: finalResult.totalTestCases || 0,
+            runtime: 0,
+            memory: 0,
+          };
+        }
+      }
+
+      if (controller.signal.aborted) return;
+
+      setSubmitResult(finalResult);
+      if (finalResult?.accepted) {
         clearDraft(problemId, selectedLanguage);
-        if (Array.isArray(response.data?.newlyAwardedBadges) && response.data.newlyAwardedBadges.length > 0) {
-          setAwardedBadges(response.data.newlyAwardedBadges);
+        if (
+          Array.isArray(finalResult?.newlyAwardedBadges) &&
+          finalResult.newlyAwardedBadges.length > 0
+        ) {
+          setAwardedBadges(finalResult.newlyAwardedBadges);
         }
       }
     } catch (error) {
+      if (controller.signal.aborted || error?.code === 'ERR_CANCELED') return;
       console.error('Error submitting code:', error);
-      setSubmitResult(null);
-      setActiveRightTab('result');
+      const errMsg =
+        error?.response?.data?.error ||
+        error?.response?.data?.message ||
+        'Submission failed. Please try again.';
+      setSubmitResult({
+        accepted: false,
+        status: 'error',
+        error: errMsg,
+        passedTestCases: 0,
+        totalTestCases: 0,
+        runtime: 0,
+        memory: 0,
+      });
     } finally {
-      setLoading(false);
+      if (!controller.signal.aborted) {
+        setLoading(false);
+      }
     }
   }, [code, problemId, selectedLanguage]);
 
@@ -1062,7 +1128,19 @@ const ProblemPage = () => {
               <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wide mb-3">
                 Submission Result
               </h3>
-              {submitResult ? (
+              {submitResult?.status === 'pending' ? (
+                <div className="rounded-xl border border-blue-500/30 bg-blue-950/15 p-5 flex items-center gap-3">
+                  <Loader2 size={20} className="animate-spin text-blue-400 flex-shrink-0" />
+                  <div>
+                    <div className="text-sm font-semibold text-blue-300">
+                      Evaluating submission…
+                    </div>
+                    <div className="text-[11px] text-zinc-400 mt-0.5">
+                      Running against hidden test cases in the background worker queue.
+                    </div>
+                  </div>
+                </div>
+              ) : submitResult ? (
                 <div className={`rounded-xl border p-5 ${
                   submitResult.accepted
                     ? 'border-emerald-600/40 bg-gradient-to-br from-emerald-950/20 to-[#131316]'
@@ -1085,12 +1163,24 @@ const ProblemPage = () => {
                     <div className="rounded-lg border border-zinc-800 bg-[#0e0f12] p-3">
                       <div className="text-zinc-500 mb-0.5">Runtime</div>
                       <div className="text-zinc-100 font-mono font-semibold text-sm">{submitResult.runtime}s</div>
-                      <div className="text-[10px] text-emerald-400 mt-0.5">⚡ Faster than ~82%</div>
+                      {submitResult.accepted && (
+                        <div className="text-[10px] text-emerald-400 mt-0.5">
+                          {submitResult.runtimePercentile != null
+                            ? `Beats ${submitResult.runtimePercentile}%`
+                            : 'Benchmark recorded'}
+                        </div>
+                      )}
                     </div>
                     <div className="rounded-lg border border-zinc-800 bg-[#0e0f12] p-3">
                       <div className="text-zinc-500 mb-0.5">Memory</div>
                       <div className="text-zinc-100 font-mono font-semibold text-sm">{submitResult.memory} KB</div>
-                      <div className="text-[10px] text-zinc-400 mt-0.5">Beats ~74%</div>
+                      {submitResult.accepted && (
+                        <div className="text-[10px] text-zinc-400 mt-0.5">
+                          {submitResult.memoryPercentile != null
+                            ? `Beats ${submitResult.memoryPercentile}%`
+                            : 'Benchmark recorded'}
+                        </div>
+                      )}
                     </div>
                     <div className="rounded-lg border border-zinc-800 bg-[#0e0f12] p-3 col-span-2 sm:col-span-1">
                       <div className="text-zinc-500 mb-0.5">Language</div>

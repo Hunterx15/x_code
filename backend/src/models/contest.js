@@ -10,7 +10,8 @@ const contestSchema = new Schema(
     },
     description: {
       type: String,
-      default: "4 algorithmic challenges ranging from easy to hard. Rated for all participants.",
+      default:
+        "4 algorithmic challenges ranging from easy to hard. Rated for all participants.",
     },
     startTime: {
       type: Date,
@@ -40,12 +41,12 @@ const contestSchema = new Schema(
       type: String,
       default: "1 Easy · 2 Medium · 1 Hard",
     },
-    participants: [
-      {
-        type: Schema.Types.ObjectId,
-        ref: "user",
-      },
-    ],
+    // Atomic counter kept in sync with the ContestRegistration join collection.
+    participantCount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
     status: {
       type: String,
       enum: ["upcoming", "live", "ended"],
@@ -59,10 +60,7 @@ const contestSchema = new Schema(
   { timestamps: true }
 );
 
-// Virtual for registration count
-contestSchema.virtual("registeredCount").get(function () {
-  return this.participants ? this.participants.length : 0;
-});
+contestSchema.index({ status: 1, startTime: 1 });
 
 const Contest = mongoose.model("contest", contestSchema);
 

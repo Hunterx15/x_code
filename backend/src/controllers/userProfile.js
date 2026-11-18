@@ -17,6 +17,10 @@ const User = require("../models/user");
 const Problem = require("../models/problem");
 const Submission = require("../models/submission");
 const UserBadge = require("../models/userBadge");
+const Contest = require("../models/contest");
+const ContestRegistration = require("../models/contestRegistration");
+const { ensureDefaultContests } = require("./contestController");
+const leaderboardService = require("../utils/leaderboardService");
 const mongoose = require("mongoose");
 
 // ---------------------------------------------------------------------------
@@ -173,6 +177,49 @@ const computeProfileStats = async (userId, { recentLimit = 10, activityDays = 90
   ]);
   const streak = computeStreak(acceptedDaysAgg.map((d) => d._id));
 
+  // 7. Global rank — O(log N) via Redis ZSET, falling back to MongoDB aggregation if offline.
+  const totalSolved = (user.problemSolved || []).length;
+  let rank;
+  let totalUsers;
+  let topPercent;
+
+  const zsetRank = await leaderboardService.getUserRank(user._id);
+  if (zsetRank) {
+    rank = zsetRank.rank;
+    totalUsers = zsetRank.totalUsers;
+    topPercent = zsetRank.topPercent;
+  } else {
+    const [higherRankedAgg, userCount] = await Promise.all([
+      User.aggregate([
+        {
+          $project: {
+            solvedCount: {
+              $cond: {
+                if: { $isArray: "$problemSolved" },
+                then: { $size: "$problemSolved" },
+                else: 0,
+              },
+            },
+          },
+        },
+        {
+          $match: {
+            $or: [
+              { solvedCount: { $gt: totalSolved } },
+              { solvedCount: totalSolved, _id: { $lt: user._id } },
+            ],
+          },
+        },
+        { $count: "count" },
+      ]),
+      User.countDocuments(),
+    ]);
+    totalUsers = userCount;
+    rank = (higherRankedAgg[0]?.count || 0) + 1;
+    topPercent =
+      totalUsers > 0 ? Math.max(1, Math.ceil((rank / totalUsers) * 100)) : 100;
+  }
+
   return {
     user: {
       _id: user._id,
@@ -183,7 +230,7 @@ const computeProfileStats = async (userId, { recentLimit = 10, activityDays = 90
       role: user.role,
     },
     stats: {
-      totalSolved: user.problemSolved.length,
+      totalSolved,
       easy: difficultyBreakdown.easy,
       medium: difficultyBreakdown.medium,
       hard: difficultyBreakdown.hard,
@@ -191,6 +238,9 @@ const computeProfileStats = async (userId, { recentLimit = 10, activityDays = 90
       acceptedSubmissions,
       acceptanceRate,
       streak,
+      rank,
+      totalUsers,
+      topPercent,
     },
     activityGraph,
     recentSubmissions: recentSubmissions.map((s) => ({
@@ -335,31 +385,37 @@ const getDashboard = async (req, res) => {
         ? recommended
         : allProblems.slice(-5).reverse();
 
-    // Dynamic upcoming contests with distinct names, schedules, and metadata.
-    const CONTEST_TEMPLATES = [
-      { baseNum: 431, title: "Weekly Contest 431", type: "weekly", durationMinutes: 90, daysOffset: 2, participants: 2840, badge: "Rated" },
-      { baseNum: 148, title: "Biweekly Contest 148", type: "biweekly", durationMinutes: 90, daysOffset: 6, participants: 3120, badge: "Rated" },
-      { baseNum: 432, title: "Weekly Contest 432", type: "weekly", durationMinutes: 90, daysOffset: 9, participants: 1950, badge: "Rated" },
-      { baseNum: 12, title: "XCODE Spring Cup 2026", type: "championship", durationMinutes: 120, daysOffset: 14, participants: 4890, badge: "Grand Prize" },
-    ];
+    // Fetch real upcoming contests from MongoDB + user registration state via ContestRegistration.
+    await ensureDefaultContests();
+    const contestDocs = await Contest.find({ status: { $ne: "ended" } })
+      .sort({ startTime: 1 })
+      .limit(4)
+      .lean();
 
-    const now = new Date();
-    const upcomingContests = CONTEST_TEMPLATES.map((tmpl) => {
-      const d = new Date(now);
-      d.setUTCDate(d.getUTCDate() + tmpl.daysOffset);
-      d.setUTCHours(10, 0, 0, 0);
-      return {
-        id: `contest-${tmpl.type}-${tmpl.baseNum}`,
-        title: tmpl.title,
-        startTime: d.toISOString(),
-        durationMinutes: tmpl.durationMinutes,
-        type: tmpl.type,
-        registeredCount: tmpl.participants,
-        badge: tmpl.badge,
-        problemCount: 4,
-        difficulty: "1 Easy · 2 Medium · 1 Hard",
-      };
-    });
+    let registeredSet = new Set();
+    if (contestDocs.length > 0) {
+      const regs = await ContestRegistration.find({
+        userId,
+        contestId: { $in: contestDocs.map((c) => c._id) },
+      })
+        .select("contestId")
+        .lean();
+      registeredSet = new Set(regs.map((r) => r.contestId.toString()));
+    }
+
+    const upcomingContests = contestDocs.map((c) => ({
+      _id: c._id,
+      id: c._id.toString(),
+      title: c.title,
+      startTime: c.startTime,
+      durationMinutes: c.durationMinutes,
+      type: c.type,
+      registeredCount: c.participantCount || 0,
+      isRegistered: registeredSet.has(c._id.toString()),
+      badge: c.badge,
+      problemCount: c.problemCount || 4,
+      difficulty: c.difficulty || "1 Easy · 2 Medium · 1 Hard",
+    }));
 
     res.status(200).json({
       dailyChallenge: dailyChallenge

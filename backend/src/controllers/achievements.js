@@ -18,6 +18,7 @@ const User = require("../models/user");
 const Submission = require("../models/submission");
 const UserBadge = require("../models/userBadge");
 const redisClient = require("../config/redis");
+const leaderboardService = require("../utils/leaderboardService");
 
 // ---------------------------------------------------------------------------
 // Badge definitions — STATIC, in-code. Each has:
@@ -372,55 +373,87 @@ const getLeaderboard = async (req, res) => {
     const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 20, 1), 100);
     const skip = (page - 1) * limit;
 
-    const cacheKey = `cache:leaderboard:${page}:${limit}`;
-    if (redisClient.isOpen) {
-      try {
-        const cached = await redisClient.get(cacheKey);
-        if (cached) {
-          return res.status(200).json(JSON.parse(cached));
-        }
-      } catch (cacheErr) {
-        console.warn("Redis leaderboard cache read error:", cacheErr.message);
-      }
-    }
+    let users = [];
+    let total = 0;
 
-    // Aggregate: sort users by problemSolved length desc, project only what we need.
-    // Safe guard: $problemSolved might be missing or null on some user docs.
-    const pipeline = [
-      {
-        $project: {
-          firstName: 1,
-          lastName: 1,
-          avatarUrl: 1,
-          totalSolved: {
-            $cond: {
-              if: { $isArray: "$problemSolved" },
-              then: { $size: "$problemSolved" },
-              else: 0,
+    // Fast path: O(log N + limit) Redis Sorted Set (ZSET)
+    const zsetPage = await leaderboardService.getPaginatedIds(page, limit);
+    if (zsetPage) {
+      total = zsetPage.total;
+      const orderedIds = zsetPage.entries.map((e) => e.userId);
+      const objectIds = orderedIds
+        .filter((id) => mongoose.isValidObjectId(id))
+        .map((id) => new mongoose.Types.ObjectId(id));
+
+      const userDocs = await User.find({ _id: { $in: objectIds } }).select(
+        "_id firstName lastName avatarUrl"
+      );
+      const userMap = new Map(userDocs.map((u) => [u._id.toString(), u]));
+
+      users = zsetPage.entries
+        .map((e) => {
+          const doc = userMap.get(e.userId);
+          if (!doc) return null;
+          return {
+            _id: doc._id,
+            firstName: doc.firstName,
+            lastName: doc.lastName,
+            avatarUrl: doc.avatarUrl || null,
+            totalSolved: e.totalSolved,
+            rank: e.rank,
+          };
+        })
+        .filter(Boolean);
+    } else {
+      // Fallback path when Redis is unavailable: MongoDB aggregation
+      const pipeline = [
+        {
+          $project: {
+            firstName: 1,
+            lastName: 1,
+            avatarUrl: 1,
+            totalSolved: {
+              $cond: {
+                if: { $isArray: "$problemSolved" },
+                then: { $size: "$problemSolved" },
+                else: 0,
+              },
             },
           },
         },
-      },
-      { $sort: { totalSolved: -1, _id: 1 } },
-      { $skip: skip },
-      { $limit: limit },
-    ];
+        { $sort: { totalSolved: -1, _id: 1 } },
+        { $skip: skip },
+        { $limit: limit },
+      ];
 
-    const [users, total] = await Promise.all([
-      User.aggregate(pipeline),
-      User.countDocuments(),
-    ]);
+      const [aggUsers, aggTotal] = await Promise.all([
+        User.aggregate(pipeline),
+        User.countDocuments(),
+      ]);
+      total = aggTotal;
+      users = aggUsers.map((u, i) => ({
+        _id: u._id,
+        firstName: u.firstName,
+        lastName: u.lastName,
+        avatarUrl: u.avatarUrl || null,
+        totalSolved: u.totalSolved,
+        rank: skip + i + 1,
+      }));
+    }
 
-    // Batch-fetch badge counts for these users
+    // Batch-fetch badge counts for just these `limit` users
     const userIds = users.map((u) => u._id);
-    const badgeCounts = await UserBadge.aggregate([
-      { $match: { userId: { $in: userIds } } },
-      { $group: { _id: "$userId", count: { $sum: 1 } } },
-    ]);
+    const badgeCounts =
+      userIds.length > 0
+        ? await UserBadge.aggregate([
+            { $match: { userId: { $in: userIds } } },
+            { $group: { _id: "$userId", count: { $sum: 1 } } },
+          ])
+        : [];
     const badgeMap = new Map(badgeCounts.map((b) => [b._id.toString(), b.count]));
 
-    const ranked = users.map((u, i) => ({
-      rank: skip + i + 1,
+    const ranked = users.map((u) => ({
+      rank: u.rank,
       _id: u._id,
       firstName: u.firstName,
       lastName: u.lastName,
@@ -429,7 +462,7 @@ const getLeaderboard = async (req, res) => {
       badgeCount: badgeMap.get(u._id.toString()) || 0,
     }));
 
-    const responsePayload = {
+    res.status(200).json({
       leaderboard: ranked,
       pagination: {
         page,
@@ -437,17 +470,7 @@ const getLeaderboard = async (req, res) => {
         total,
         totalPages: Math.ceil(total / limit),
       },
-    };
-
-    if (redisClient.isOpen) {
-      try {
-        await redisClient.set(cacheKey, JSON.stringify(responsePayload), { EX: 30 });
-      } catch (cacheErr) {
-        // ignore
-      }
-    }
-
-    res.status(200).json(responsePayload);
+    });
   } catch (err) {
     console.error("getLeaderboard error:", err);
     res.status(500).json({ error: "Internal server error" });

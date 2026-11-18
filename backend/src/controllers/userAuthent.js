@@ -31,6 +31,7 @@ const validate = require("../utils/validator");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const Submission = require("../models/submission");
+const leaderboardService = require("../utils/leaderboardService");
 const { cookieOptions, clearCookieOptions } = require("../config/cookieConfig");
 
 const safeError = (err) => {
@@ -54,7 +55,9 @@ const register = async (req, res) => {
       password: hashedPassword,
       age,
       role: "user",
+      problemSolved: [],
     });
+    leaderboardService.setUserScore(user._id, 0).catch(() => {});
     const token = jwt.sign(
       { _id: user._id, emailId: user.emailId, role: "user" },
       process.env.JWT_KEY,
@@ -193,6 +196,7 @@ const deleteProfile = async (req, res) => {
     // hook also does this, but we do it explicitly here for clarity + so we
     // can await it before responding).
     await User.findByIdAndDelete(userId);
+    leaderboardService.removeUser(userId).catch(() => {});
     // The post-hook will handle submission cleanup.
 
     res.status(200).json({ message: "Deleted successfully" });
