@@ -66,16 +66,18 @@ const adminMiddleware = async (req, res, next) => {
     }
 
     // Check the Redis blocklist (with graceful fallback).
-    try {
-      const isBlocked = await redisClient.exists(`token:${token}`);
-      if (isBlocked) {
-        return res.status(401).json({
-          error: "Token has been revoked",
-          message: "Token has been revoked",
-        });
+    if (redisClient.isReady) {
+      try {
+        const isBlocked = await redisClient.exists(`token:${token}`);
+        if (isBlocked) {
+          return res.status(401).json({
+            error: "Token has been revoked",
+            message: "Token has been revoked",
+          });
+        }
+      } catch (redisErr) {
+        console.error("adminMiddleware: Redis check failed, failing open:", redisErr.message);
       }
-    } catch (redisErr) {
-      console.error("adminMiddleware: Redis check failed, failing open:", redisErr.message);
     }
 
     req.result = result;

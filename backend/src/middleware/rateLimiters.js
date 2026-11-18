@@ -31,7 +31,7 @@ const createDistributedLimiter = ({
   });
 
   return async (req, res, next) => {
-    if (!redisClient.isOpen) {
+    if (!redisClient.isReady) {
       return fallbackLimiter(req, res, next);
     }
 

@@ -20,9 +20,17 @@
 const { createClient } = require("redis");
 
 const redisConfig = {
+  // Never buffer commands forever in memory when Redis is offline — fail fast
+  // so auth middleware, rate limiters, and caches gracefully fall back.
+  disableOfflineQueue: true,
   socket: {
     host: process.env.REDIS_HOST || "localhost",
     port: Number(process.env.REDIS_PORT) || 6379,
+    connectTimeout: 5000,
+    reconnectStrategy: (retries) => {
+      if (process.env.DISABLE_REDIS === "true") return false;
+      return Math.min(retries * 500, 10000);
+    },
   },
 };
 

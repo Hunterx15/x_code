@@ -21,7 +21,7 @@ let hydrationInFlight = null;
 
 // Hydrate the Redis ZSET from MongoDB on cold start (single-flight to avoid stampede).
 const ensureHydrated = async () => {
-  if (!redisClient.isOpen) return false;
+  if (!redisClient.isReady) return false;
 
   try {
     const exists = await redisClient.exists(LEADERBOARD_KEY);
@@ -71,7 +71,7 @@ const ensureHydrated = async () => {
 
 // Update a single user's solved count in O(log N).
 const setUserScore = async (userId, totalSolved) => {
-  if (!redisClient.isOpen || !userId) return;
+  if (!redisClient.isReady || !userId) return;
   try {
     const exists = await redisClient.exists(LEADERBOARD_KEY);
     if (!exists) return; // Will be hydrated lazily on next read
@@ -86,7 +86,7 @@ const setUserScore = async (userId, totalSolved) => {
 
 // Remove a deleted user from the ZSET in O(log N).
 const removeUser = async (userId) => {
-  if (!redisClient.isOpen || !userId) return;
+  if (!redisClient.isReady || !userId) return;
   try {
     await redisClient.zRem(LEADERBOARD_KEY, userId.toString());
   } catch (err) {

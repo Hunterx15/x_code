@@ -106,7 +106,7 @@ const createProblem = async (req, res) => {
       problemCreator: req.result._id,
     });
 
-    if (redisClient.isOpen) {
+    if (redisClient.isReady) {
       redisClient.del("cache:all_problems").catch(() => {});
     }
 
@@ -194,7 +194,7 @@ const updateProblem = async (req, res) => {
       new: true,
     });
 
-    if (redisClient.isOpen) {
+    if (redisClient.isReady) {
       redisClient.del("cache:all_problems").catch(() => {});
     }
 
@@ -219,7 +219,7 @@ const deleteProblem = async (req, res) => {
       return res.status(404).json({ error: "Problem not found", message: "Problem not found" });
     }
 
-    if (redisClient.isOpen) {
+    if (redisClient.isReady) {
       redisClient.del("cache:all_problems").catch(() => {});
     }
 
@@ -325,7 +325,7 @@ const getProblemById = async (req, res) => {
 const getAllProblem = async (req, res) => {
   try {
     const cacheKey = "cache:all_problems";
-    if (redisClient.isOpen) {
+    if (redisClient.isReady) {
       try {
         const cached = await redisClient.get(cacheKey);
         if (cached) {
@@ -347,7 +347,7 @@ const getAllProblem = async (req, res) => {
       return res.status(200).json([]);
     }
 
-    if (redisClient.isOpen) {
+    if (redisClient.isReady) {
       try {
         await redisClient.set(cacheKey, JSON.stringify(getProblem), { EX: 60 });
       } catch (cacheErr) {

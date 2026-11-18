@@ -65,16 +65,18 @@ const userMiddleware = async (req, res, next) => {
     // doesn't take down the entire API — if Redis is unavailable, we
     // fail OPEN (allow the request) and log the error. This matches the
     // behavior of the EdgeFlow rate limiter.
-    try {
-      const isBlocked = await redisClient.exists(`token:${token}`);
-      if (isBlocked) {
-        return res.status(401).json({
-          error: "Token has been revoked",
-          message: "Token has been revoked",
-        });
+    if (redisClient.isReady) {
+      try {
+        const isBlocked = await redisClient.exists(`token:${token}`);
+        if (isBlocked) {
+          return res.status(401).json({
+            error: "Token has been revoked",
+            message: "Token has been revoked",
+          });
+        }
+      } catch (redisErr) {
+        console.error("userMiddleware: Redis check failed, failing open:", redisErr.message);
       }
-    } catch (redisErr) {
-      console.error("userMiddleware: Redis check failed, failing open:", redisErr.message);
     }
 
     req.result = result;

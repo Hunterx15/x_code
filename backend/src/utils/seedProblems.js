@@ -41,7 +41,7 @@ async function seedCatalog({ creatorId = null } = {}) {
 
   if (toInsert.length > 0) {
     await Problem.insertMany(toInsert, { ordered: false });
-    if (redisClient.isOpen) {
+    if (redisClient.isReady) {
       await redisClient.del("cache:all_problems").catch(() => {});
     }
   }

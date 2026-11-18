@@ -37,7 +37,7 @@ const EXCHANGE_CODE_TTL_SEC = 60; // 60 seconds
 const memoryStore = new Map();
 
 const setEphemeral = async (key, value, ttlSec) => {
-  if (redisClient.isOpen) {
+  if (redisClient.isReady) {
     try {
       await redisClient.set(key, value, { EX: ttlSec });
       return;
@@ -57,7 +57,7 @@ const setEphemeral = async (key, value, ttlSec) => {
 };
 
 const consumeEphemeral = async (key) => {
-  if (redisClient.isOpen) {
+  if (redisClient.isReady) {
     try {
       const value = await redisClient.get(key);
       if (value !== null) {

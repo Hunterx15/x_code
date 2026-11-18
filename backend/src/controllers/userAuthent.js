@@ -140,7 +140,7 @@ const logout = async (req, res) => {
 
   try {
     const payload = jwt.decode(token);
-    if (payload?.exp) {
+    if (payload?.exp && redisClient.isReady) {
       // Blocklist the token in Redis with a TTL matching the JWT's lifetime
       // so the blocklist entry auto-expires when the JWT would have expired
       // anyway (no manual cleanup needed).

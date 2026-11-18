@@ -139,15 +139,18 @@ const initializeConnection = async () => {
       })
       .catch((err) => console.warn("Catalog seed skipped:", err.message));
 
-    // Redis is OPTIONAL — we connect in the background and let the auth
-    // middleware fail open if it's unavailable. Previously a Redis outage
-    // would prevent the server from starting at all.
-    redisClient.connect().catch((err) => {
-      console.warn(
-        "Redis: failed to connect, running in degraded mode (token blocklist disabled):",
-        err.message,
-      );
-    });
+    // Redis is OPTIONAL — skip if DISABLE_REDIS=true (useful for A/B benchmarks),
+    // otherwise connect in the background and fail open if unavailable.
+    if (process.env.DISABLE_REDIS === "true") {
+      console.log("Redis: disabled via DISABLE_REDIS=true (using MongoDB fallback)");
+    } else {
+      redisClient.connect().catch((err) => {
+        console.warn(
+          "Redis: failed to connect, running in degraded mode:",
+          err.message,
+        );
+      });
+    }
 
     const PORT = process.env.PORT || 3000;
     const server = app.listen(PORT, () => {
