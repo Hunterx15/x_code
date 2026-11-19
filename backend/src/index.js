@@ -42,6 +42,7 @@ const discussionRouter = require("./routes/discussion");
 const contestRouter = require("./routes/contest");
 const { getQueueStats } = require("./utils/submissionQueue");
 const { seedCatalog } = require("./utils/seedProblems");
+const { seedYouTubeVideos } = require("./utils/seedYouTubeVideos");
 const cors = require("cors");
 const helmet = require("helmet");
 const {
@@ -62,12 +63,19 @@ app.use(
       useDefaults: true,
       directives: {
         defaultSrc: ["'self'"],
-        mediaSrc: ["'self'", "https://res.cloudinary.com"],
+        mediaSrc: ["'self'", "https://res.cloudinary.com", "https://*.youtube.com"],
+        frameSrc: [
+          "'self'",
+          "https://www.youtube.com",
+          "https://www.youtube-nocookie.com",
+        ],
         imgSrc: [
           "'self'",
           "data:",
           "https://lh3.googleusercontent.com",
           "https://res.cloudinary.com",
+          "https://img.youtube.com",
+          "https://i.ytimg.com",
         ],
         connectSrc: [
           "'self'",
@@ -132,9 +140,17 @@ const initializeConnection = async () => {
     // Non-blocking idempotent catalog seed so the 60 LeetCode problems are
     // available immediately after deploy without manual CLI intervention.
     seedCatalog()
-      .then((s) => {
+      .then(async (s) => {
         if (s.inserted > 0) {
           console.log(`Catalog seed: inserted ${s.inserted} problems (${s.totalInDb} total)`);
+        }
+        try {
+          const ytCount = await seedYouTubeVideos();
+          if (ytCount > 0) {
+            console.log(`YouTube seed: attached ${ytCount} video walkthroughs`);
+          }
+        } catch (ytErr) {
+          console.warn("YouTube seed skipped:", ytErr.message);
         }
       })
       .catch((err) => console.warn("Catalog seed skipped:", err.message));

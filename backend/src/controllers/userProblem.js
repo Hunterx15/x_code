@@ -307,11 +307,24 @@ const getProblemById = async (req, res) => {
     problemObj.relatedProblems = relatedProblems;
 
     if (videos) {
+      const isYt =
+        videos.videoType === "youtube" ||
+        /(?:youtu\.be\/|youtube\.com)/.test(videos.secureUrl || "");
+      const ytMatch = (videos.secureUrl || "").match(
+        /(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=|shorts\/))([a-zA-Z0-9_-]{11})/
+      );
+      const ytId = videos.youtubeVideoId || (ytMatch ? ytMatch[1] : null);
+
       const responseData = {
         ...problemObj,
         secureUrl: videos.secureUrl,
-        thumbnailUrl: videos.thumbnailUrl,
+        thumbnailUrl:
+          videos.thumbnailUrl ||
+          (ytId ? `https://img.youtube.com/vi/${ytId}/hqdefault.jpg` : null),
         duration: videos.duration,
+        videoType: isYt ? "youtube" : "cloudinary",
+        youtubeVideoId: ytId,
+        embedUrl: ytId ? `https://www.youtube.com/embed/${ytId}` : null,
       };
       return res.status(200).json(responseData);
     }

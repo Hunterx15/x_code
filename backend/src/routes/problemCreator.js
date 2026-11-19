@@ -12,7 +12,13 @@ problemRouter.post("/create",adminMiddleware ,createProblem);
 problemRouter.post("/seed", adminMiddleware, async (req, res) => {
   try {
     const result = await seedCatalog({ creatorId: req.result._id });
-    return res.status(200).json({ message: "Catalog seeded successfully", ...result });
+    const { seedYouTubeVideos } = require("../utils/seedYouTubeVideos");
+    const ytCount = await seedYouTubeVideos().catch(() => 0);
+    return res.status(200).json({
+      message: "Catalog seeded successfully",
+      ...result,
+      youtubeVideosLinked: ytCount,
+    });
   } catch (err) {
     console.error("Seed catalog error:", err);
     return res.status(500).json({ error: "Failed to seed catalog" });

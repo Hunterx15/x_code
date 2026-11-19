@@ -191,3 +191,36 @@ test(
     assert.equal(firstBlood.evaluator({ totalSolved: 1 }), true);
   }
 );
+
+test(
+  "extractYouTubeId correctly parses standard, short, embed, and query YouTube URLs",
+  { skip: !hasNodeModules },
+  () => {
+    const { extractYouTubeId } = require("../src/controllers/videoSection");
+    assert.equal(
+      extractYouTubeId("https://www.youtube.com/watch?v=KLlXCFG5TnA"),
+      "KLlXCFG5TnA"
+    );
+    assert.equal(
+      extractYouTubeId("https://youtu.be/KLlXCFG5TnA"),
+      "KLlXCFG5TnA"
+    );
+    assert.equal(
+      extractYouTubeId("https://www.youtube.com/embed/KLlXCFG5TnA"),
+      "KLlXCFG5TnA"
+    );
+    assert.equal(
+      extractYouTubeId("https://youtube.com/shorts/KLlXCFG5TnA"),
+      "KLlXCFG5TnA"
+    );
+    assert.equal(
+      extractYouTubeId(
+        "https://www.youtube.com/watch?v=KLlXCFG5TnA&feature=shared"
+      ),
+      "KLlXCFG5TnA"
+    );
+    assert.equal(extractYouTubeId("KLlXCFG5TnA"), "KLlXCFG5TnA");
+    assert.equal(extractYouTubeId("not-a-valid-url"), null);
+    assert.equal(extractYouTubeId(""), null);
+  }
+);

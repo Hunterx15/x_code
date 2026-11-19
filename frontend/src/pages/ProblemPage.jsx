@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useSelector } from 'react-redux';
 import Editor from '@monaco-editor/react';
 import { useParams, useNavigate, useSearchParams, NavLink } from 'react-router';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -100,6 +101,7 @@ const clearDraft = (problemId, lang) => {
 const isModifier = (e) => e.metaKey || e.ctrlKey;
 
 const ProblemPage = () => {
+  const user = useSelector((state) => state.auth?.user);
   const { problemId } = useParams();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -670,6 +672,11 @@ const ProblemPage = () => {
                   secureUrl={problem.secureUrl}
                   thumbnailUrl={problem.thumbnailUrl}
                   duration={problem.duration}
+                  videoType={problem.videoType}
+                  youtubeVideoId={problem.youtubeVideoId}
+                  problemId={problem._id}
+                  problemTitle={problem.title}
+                  isAdmin={user?.role === 'admin'}
                 />
               </div>
             )}
