@@ -137,13 +137,18 @@ const initializeConnection = async () => {
     await main();
     console.log("MongoDB: connected");
 
-    // Non-blocking idempotent catalog seed so the 60 LeetCode problems are
-    // available immediately after deploy without manual CLI intervention.
+    // Non-blocking idempotent catalog seed so problems and video walkthroughs
+    // are available immediately after deploy without manual CLI intervention.
     seedCatalog()
-      .then(async (s) => {
+      .then((s) => {
         if (s.inserted > 0) {
-          console.log(`Catalog seed: inserted ${s.inserted} problems (${s.totalInDb} total)`);
+          console.log(
+            `Catalog seed: inserted ${s.inserted} problems (${s.totalInDb} total)`
+          );
         }
+      })
+      .catch((err) => console.warn("Catalog seed skipped:", err.message))
+      .finally(async () => {
         try {
           const ytCount = await seedYouTubeVideos();
           if (ytCount > 0) {
@@ -152,8 +157,7 @@ const initializeConnection = async () => {
         } catch (ytErr) {
           console.warn("YouTube seed skipped:", ytErr.message);
         }
-      })
-      .catch((err) => console.warn("Catalog seed skipped:", err.message));
+      });
 
     // Redis is OPTIONAL — skip if DISABLE_REDIS=true (useful for A/B benchmarks),
     // otherwise connect in the background and fail open if unavailable.

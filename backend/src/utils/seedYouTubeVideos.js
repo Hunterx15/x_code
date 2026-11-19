@@ -144,15 +144,18 @@ const seedYouTubeVideos = async () => {
     let seededCount = 0;
 
     for (const problem of problems) {
-      // Check title match (case-insensitive & trimmed)
-      const normalizedTitle = problem.title.trim();
-      const ytId =
-        YOUTUBE_SOLUTION_MAP[normalizedTitle] ||
-        YOUTUBE_SOLUTION_MAP[
-          Object.keys(YOUTUBE_SOLUTION_MAP).find(
-            (k) => k.toLowerCase() === normalizedTitle.toLowerCase()
-          )
-        ];
+      const rawTitle = (problem.title || "").trim();
+      const cleanKey = rawTitle.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+      let ytId = YOUTUBE_SOLUTION_MAP[rawTitle];
+      if (!ytId) {
+        const matchingKey = Object.keys(YOUTUBE_SOLUTION_MAP).find(
+          (k) => k.toLowerCase().replace(/[^a-z0-9]/g, "") === cleanKey
+        );
+        if (matchingKey) {
+          ytId = YOUTUBE_SOLUTION_MAP[matchingKey];
+        }
+      }
 
       if (ytId) {
         const watchUrl = `https://www.youtube.com/watch?v=${ytId}`;
